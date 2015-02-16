@@ -1,9 +1,12 @@
+#define _USE_MATH_DEFINES
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstdlib>
 #include <vector>
 #include <iostream>
 #include <time.h>
+#include <math.h>
 
 #include <GL/glew.h> //Apparently this needs to be before gl.h, and glfw.h. Queen bee of the OpenGL Plastics.
 #include <glfw3.h>
@@ -19,12 +22,14 @@
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
 GLuint makePointVao(const Point * g_vertex_buffer_data, int numPoints);
+void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 GLuint createIndexBuffer(int numPoints);
 void display(GLuint & vao);
 void fakeDraw(GLuint & vao);
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
+void placePointOnCircle(int i, int n, Point & p);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -118,6 +123,8 @@ int main(){
 
 				// Convert the color back to an integer ID
 				int pickedID = int(data[0]);
+
+				
 				if (pickedID != 255){ //Not the background
 					if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
 						if (selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
@@ -127,6 +134,8 @@ int main(){
 							//Update the position
 							selectedPoint->XYZW[0] = x_n;
 							selectedPoint->XYZW[1] = y_n;
+
+							std::cout << "updating " << selectedPoint->id << " to (" << x_n << ", " << y_n << ") " << std::endl;
 						}
 					}
 					else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
@@ -178,7 +187,8 @@ int main(){
 		}
 
 
-		triangleBuffer = makePointVao(pointVerticies, POINT_COUNT); // Refresh the vertices
+		//triangleBuffer = makePointVao(pointVerticies, POINT_COUNT); // Refresh the vertices
+		updatePointVao(triangleBuffer, pointVerticies, POINT_COUNT);
 
 		glUseProgram(programID); //Use the normal shaders
 		display(triangleBuffer); //Draw the boxes
@@ -263,12 +273,12 @@ const std::vector<Point> getPoints(int numPoints){
 	srand(time(NULL)); //for rand()
 	std::vector<Point> points(0);
 	float RED[4] = { 1.f, 0.f, 0.f, 1.f };
+
+
+
 	for (int i = 0; i < numPoints; i += 1){
 		Point p(i);
-		p.XYZW[0] = randFloat(-1.f, 1.f);
-		p.XYZW[1] = randFloat(-1.f, 1.f);
-		p.XYZW[2] = 0.f;
-		p.XYZW[3] = 1.f;
+		placePointOnCircle(i, numPoints, p);
 
 		//p.setRGBA(RED);
 		p.RGBA[0] = randFloat(0.f, 1.f);
@@ -293,6 +303,11 @@ GLuint makePointVao(const Point * g_vertex_buffer_data, int numPoints){
 	glBufferData(GL_ARRAY_BUFFER, numPoints * sizeof(Point), g_vertex_buffer_data, GL_STATIC_DRAW);
 
 	return vertexBuffer;
+}
+
+void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints){
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, numPoints * sizeof(Point), g_vertex_buffer_data);
 }
 
 GLuint createIndexBuffer(int numPoints){
@@ -339,4 +354,24 @@ Point * const getPointById(int searchId){
 		return &(*POINTS)[index];
 	}
 	return NULL;
+}
+
+/*
+ * Given a reference to a Point (p), and the index (i) of that point out of the total number (n) of points,
+ * set the coordinates of the point such that it, combined with all points, make up a circle. 
+ * Note, i should be zero indexed, such that i = [0,n). 
+ */
+void placePointOnCircle(int i, int n, Point & p){
+	float scaleFactorX = (float)RESOLUTION_HEIGHT / (float)RESOLUTION_WIDTH; //factor for wide windows 
+	if (RESOLUTION_HEIGHT > RESOLUTION_WIDTH){ scaleFactorX = 1.0 / scaleFactorX; } //in case the window is taller than it is wide
+	//This factor is to scale the points, since the bounds of this window are -1 and 1 on box axis', regardless of the window dimensions
+
+	float radius = 0.75f;
+
+	float rad = ((float)i / (float)n) * 2.0 * M_PI; //Out of a full circle, where should this point be
+
+	p.XYZW[0] = std::cos(rad) * radius * scaleFactorX;
+	p.XYZW[1] = std::sin(rad) * radius;
+	p.XYZW[2] = 0.f;
+	p.XYZW[3] = 1.f;
 }
