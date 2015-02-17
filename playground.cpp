@@ -7,6 +7,8 @@
 #include <iostream>
 #include <time.h>
 #include <math.h>
+#include <algorithm>
+#include <queue>
 
 #include <GL/glew.h> //Apparently this needs to be before gl.h, and glfw.h. Queen bee of the OpenGL Plastics.
 #include <glfw3.h>
@@ -19,17 +21,30 @@
 #include "common\shader.hpp"
 #include "Point.h"
 
+
+struct VaoItem{
+	GLuint bufferId;
+	int itemCount;
+
+	VaoItem(GLuint id, int count) :bufferId(id), itemCount(count){}
+};
+
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
 GLuint makePointVao(const Point * g_vertex_buffer_data, int numPoints);
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 GLuint createIndexBuffer(int numPoints);
-void display(GLuint & vao);
+void display();
 void fakeDraw(GLuint & vao);
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
 void placePointOnCircle(int i, int n, Point & p);
+void handleModeState();
+void registerListenedKey(int key);
+bool keyHasBeenPressed(int key);
+void dispatchKeyPress(int pressedKey);
+void generateAndDrawSecondaryPoints();
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -41,9 +56,30 @@ const unsigned int MOUSE_PRESSED = 1;
 const unsigned int MOUSE_HELD = 2;
 const unsigned int MOUSE_HAS_CLICKED = MOUSE_PRESSED | MOUSE_HELD;
 
+const unsigned int MODE_SUBDIV = 64;
+const unsigned int MODE_CATMULL = 128;
+const unsigned int MODE_BEZIER = 256;
+
+const float RED[4] = { 1.f, 0.f, 0.f, 1.f };
+const float YELLOW[4] = { 1.f, 1.f, 0.f, 1.f };
+const float GREEN[4] = { 0.f, 1.f, 0.f, 1.f };
+const float CYAN[4] = { 0.f, 1.f, 1.f, 1.f };
+const float BLUE[4] = { 0.f, 0.f, 1.f, 1.f };
+const float PURPLE[4] = { 1.f, 0.f, 1.f, 1.f };
+const float WHITE[4] = { 1.f, 1.f, 1.f, 1.f };
+
 /** GLOBAL VARIABLES **/
 GLFWwindow * WINDOW;
 std::vector<Point> * POINTS;
+std::vector<int> LISTENED_KEYS;
+std::vector<int> PRESSED_KEYS; 
+std::queue<VaoItem> DisplayQueue;
+
+GLuint SecondaryVao = 0;
+
+unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
+unsigned int ModeState = 0;
+
 
 int main(){
 	//Initialize GLFW
@@ -74,6 +110,10 @@ int main(){
 		return 1;
 	}
 
+	registerListenedKey(GLFW_KEY_1);
+	registerListenedKey(GLFW_KEY_2);
+	registerListenedKey(GLFW_KEY_3);
+
 	/*********************************************/
 	/** Done with OpenGL set up stuff,          **/
 	/** begin actual graphic stuff now.         **/
@@ -89,7 +129,7 @@ int main(){
 
 	glfwSetInputMode(WINDOW, GLFW_STICKY_KEYS, GL_TRUE);
 	
-	unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
+
 	Point * selectedPoint = NULL; //Pointer to the selected Point object; populated when user clicks on a point. 
 
 	//Just some variables that will be used to calculate the conversion between screen coordinates and vertex coordinates.
@@ -135,14 +175,14 @@ int main(){
 							selectedPoint->XYZW[0] = x_n;
 							selectedPoint->XYZW[1] = y_n;
 
-							std::cout << "updating " << selectedPoint->id << " to (" << x_n << ", " << y_n << ") " << std::endl;
+							//std::cout << "updating " << selectedPoint->id << " to (" << x_n << ", " << y_n << ") " << std::endl;
 						}
 					}
 					else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
 						selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
 						if (selectedPoint != NULL){ //Make sure something didn't go wrong
-							//selectedPoint->setRGBA(0.f, 1.f, 0.f, 1.f);
-							selectedPoint->invertColor();
+							selectedPoint->setRGBA(RED);
+							//selectedPoint->invertColor();
 
 							//Update the reference points so our conversion math works in the next states (see above).
 							x_0 = xpos;
@@ -178,7 +218,8 @@ int main(){
 			if (mouseState & MOUSE_HAS_CLICKED){ //but the mouse WAS clicked before (so it's been released).
 				if (selectedPoint != NULL){
 					//selectedPoint->setRGBA(1.f, 0.f, 0.f, 1.f); //Return the point to its original color.
-					selectedPoint->invertColor();
+					//selectedPoint->invertColor();
+					selectedPoint->setRGBA(WHITE);
 				}
 
 				selectedPoint = NULL; //clear it, just to be safe
@@ -186,20 +227,26 @@ int main(){
 			}
 		}
 
-
-		//triangleBuffer = makePointVao(pointVerticies, POINT_COUNT); // Refresh the vertices
-		updatePointVao(triangleBuffer, pointVerticies, POINT_COUNT);
+		updatePointVao(triangleBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
-		display(triangleBuffer); //Draw the boxes
+		//display(triangleBuffer); //Draw the boxes
+		DisplayQueue.push(VaoItem(triangleBuffer, POINT_COUNT));
+
+		generateAndDrawSecondaryPoints();
+
+		display();
+
 		glfwPollEvents();
+
+		handleModeState(); //Check for input and change the mode state appropriately
 	} while (glfwGetKey(WINDOW, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(WINDOW) == 0);
 }
 
 /* 
  * Draw the boxes to the screen!
  */
-void display(GLuint & vao){
+void display(){
 	static const size_t pointIdOffset = 0;
 	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
 	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
@@ -212,14 +259,21 @@ void display(GLuint & vao){
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_POINT_SMOOTH);
 	glPointSize(20.0);
+	glEnable(GL_POINT_SMOOTH);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vao);
-	glVertexAttribPointer(0, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies 
-	glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointColorOffset); //Colors
+	while (!DisplayQueue.empty()){
+		VaoItem vao = DisplayQueue.front();
 
-	glDrawArrays(GL_POINTS, 0, POINT_COUNT * sizeof(Point));
+		glBindBuffer(GL_ARRAY_BUFFER, vao.bufferId);
+		glVertexAttribPointer(0, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies 
+		glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointColorOffset); //Colors
+
+		glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
+
+		DisplayQueue.pop();
+
+	}
 
 	glDisable(GL_POINT_SMOOTH);
 	glBlendFunc(GL_NONE, GL_NONE);
@@ -272,18 +326,11 @@ void fakeDraw(GLuint & vao){
 const std::vector<Point> getPoints(int numPoints){
 	srand(time(NULL)); //for rand()
 	std::vector<Point> points(0);
-	float RED[4] = { 1.f, 0.f, 0.f, 1.f };
-
-
 
 	for (int i = 0; i < numPoints; i += 1){
 		Point p(i);
 		placePointOnCircle(i, numPoints, p);
-
-		//p.setRGBA(RED);
-		p.RGBA[0] = randFloat(0.f, 1.f);
-		p.RGBA[1] = randFloat(0.f, 1.f);
-		p.RGBA[2] = randFloat(0.f, 1.f);
+		p.setRGBA(WHITE);
 
 		points.push_back(p);
 	}
@@ -374,4 +421,124 @@ void placePointOnCircle(int i, int n, Point & p){
 	p.XYZW[1] = std::sin(rad) * radius;
 	p.XYZW[2] = 0.f;
 	p.XYZW[3] = 1.f;
+}
+
+//Add a keyboard key to the list of keys to be listened for presses.
+void registerListenedKey(int key){
+	if (std::find(LISTENED_KEYS.begin(), LISTENED_KEYS.end(), key) == LISTENED_KEYS.end()){ //If key hasn't been added already
+		LISTENED_KEYS.push_back(key);
+	}
+}
+
+bool keyHasBeenPressed(int key){
+	if (std::find(PRESSED_KEYS.begin(), PRESSED_KEYS.end(), key) != PRESSED_KEYS.end()){
+		return true;
+	}
+	return false;
+}
+
+void dispatchKeyPress(int pressedKey){
+	switch (pressedKey){
+		case(GLFW_KEY_1):
+			if (ModeState & MODE_SUBDIV){
+				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
+				ModeState |= value; //OR in the new value
+
+				std::cout << "Subdiv level is now " << value << std::endl;
+			}
+			else{
+				ModeState = MODE_SUBDIV;
+				std::cout << "Setting mode to SUBDIV" << std::endl;
+			}
+			break;
+
+		case(GLFW_KEY_2):
+			if (ModeState & MODE_CATMULL){
+				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
+				ModeState |= value; //OR in the new value
+			}
+			else{
+				ModeState = MODE_CATMULL;
+				std::cout << "Setting mode to CATMULL" << std::endl;
+			}
+			break;
+		case(GLFW_KEY_3):
+			if (ModeState & MODE_BEZIER){
+				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
+				ModeState |= value; //OR in the new value
+			}
+			else{
+				ModeState = MODE_BEZIER;
+				std::cout << "Setting mode to BEZIER" << std::endl;
+			}
+			break;
+	}
+}
+
+/*
+ * Loops through all of the keys registered in LISTENED_KEYS to check for key presses.
+ * Will call dispatchKeyPress with the key value when a key is pressed and released. 
+ */
+void handleModeState(){
+	for (int i = 0; i < LISTENED_KEYS.size(); i += 1){
+		if (glfwGetKey(WINDOW, LISTENED_KEYS[i]) == GLFW_PRESS){
+			if (!keyHasBeenPressed(LISTENED_KEYS[i])){
+				PRESSED_KEYS.push_back(LISTENED_KEYS[i]);
+			}
+		}
+		if (glfwGetKey(WINDOW, LISTENED_KEYS[i]) == GLFW_RELEASE){
+			if (keyHasBeenPressed(LISTENED_KEYS[i])){
+				//Remove the key from the list of pressed keys
+				PRESSED_KEYS.erase(std::remove(PRESSED_KEYS.begin(), PRESSED_KEYS.end(), LISTENED_KEYS[i]), PRESSED_KEYS.end());
+				
+				dispatchKeyPress(LISTENED_KEYS[i]); //Do something now that the key has been pressed (and released)
+			}
+		}
+	}
+}
+
+void generateAndDrawSecondaryPoints(){
+	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
+		int subdivLevel = ModeState & 0x0f;
+		if (subdivLevel == 0){
+			return; //If level is zero, we're not even going to draw any points
+		}
+
+		int secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
+		int pointSetCount = subdivLevel + 1;
+		std::vector<std::vector<Point>> secondaryPoints;
+		secondaryPoints.push_back(*POINTS);
+
+		std::vector<Point> tempVector;
+		std::vector<std::vector<Point>> & P = secondaryPoints; //Lazy alias
+		for (int k = 1; k < pointSetCount; k += 1){
+			int kCount = POINT_COUNT * std::pow(2, k);
+			std::vector<Point> temp(kCount);
+			P.push_back(std::vector<Point>(kCount));
+
+			for (int i = 0; i < kCount / 2; i += 1){
+				int im1 = (i - 1 >= 0) ? (i - 1) : (kCount/2 - 1);
+				int ip1 = (i + 1 < kCount/2) ? (i + 1) : 0;
+
+				P[k][2 * i] = (P[k - 1][im1] * 4.0f + P[k - 1][i] * 4.f) / 8.0f;
+				P[k][2 * i].setRGBA(CYAN);
+
+				P[k][2 * i + 1] = (P[k - 1][im1] + (P[k - 1][i] * 6) + P[k - 1][ip1]) / 8.0f;
+				P[k][2 * i + 1].setRGBA(CYAN);
+			}
+		}
+
+		Point * pointVerticies = &(secondaryPoints[subdivLevel][0]);
+		if (SecondaryVao == 0){
+			SecondaryVao = makePointVao(pointVerticies,secondaryPointCount);
+		}
+		else{
+			updatePointVao(SecondaryVao, pointVerticies, secondaryPointCount);
+		}
+		
+		DisplayQueue.push(VaoItem(SecondaryVao, secondaryPointCount));
+	}
 }
