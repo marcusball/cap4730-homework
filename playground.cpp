@@ -31,9 +31,8 @@ struct VaoItem{
 
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
-GLuint makePointVao(const Point * g_vertex_buffer_data, int numPoints);
+void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId);
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
-GLuint createIndexBuffer(int numPoints);
 void display();
 void fakeDraw(GLuint & vao);
 float randFloat(float min, float max);
@@ -77,10 +76,12 @@ std::vector<int> PRESSED_KEYS;
 std::queue<VaoItem> DisplayQueue;
 
 GLuint SecondaryVao = 0;
+GLuint SecondaryVaoArray = 0;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
 bool ModeLevelChanged = false;
+bool DEBUG_SELECTION_DRAW = false;
 
 
 int main(){
@@ -115,6 +116,7 @@ int main(){
 	registerListenedKey(GLFW_KEY_1);
 	registerListenedKey(GLFW_KEY_2);
 	registerListenedKey(GLFW_KEY_3);
+	registerListenedKey(GLFW_KEY_D);
 
 	/*********************************************/
 	/** Done with OpenGL set up stuff,          **/
@@ -123,8 +125,9 @@ int main(){
 	std::vector<Point> points = getPoints(POINT_COUNT);
 	POINTS = &points;
 	const Point * pointVerticies = &(*POINTS)[0];
-	GLuint triangleBuffer = makePointVao(pointVerticies, POINT_COUNT);
-	GLuint indexBuffer = createIndexBuffer(POINT_COUNT);
+	GLuint pointBuffer;
+	GLuint pointBufferArray;
+	makePointVao(pointVerticies, POINT_COUNT, pointBuffer ,pointBufferArray);
 
 	GLuint programID = LoadShaders("vertex.shader", "frag.shader");
 	GLuint pickingProgramID = LoadShaders("picking.vertex.shader", "picking.frag.shader");
@@ -142,7 +145,7 @@ int main(){
 	do{
 		
 		// update vertex buffer each frame so that shaders can use updated vertex data (HINT: useful when dragging, changing color)
-		glBindBuffer(GL_ARRAY_BUFFER, triangleBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, pointBuffer);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, POINT_COUNT * VERTEX_DIMENSIONS * sizeof(GLfloat), pointVerticies);	// update buffer data
 
 		// PICKING IS DONE HERE
@@ -151,7 +154,7 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				fakeDraw(triangleBuffer);
+				fakeDraw(pointBuffer);
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 				// Read the pixel at the center of the screen.
@@ -229,11 +232,11 @@ int main(){
 			}
 		}
 
-		updatePointVao(triangleBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
+		updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
-		//display(triangleBuffer); //Draw the boxes
-		DisplayQueue.push(VaoItem(triangleBuffer, POINT_COUNT));
+		//display(pointBuffer); //Draw the boxes
+		DisplayQueue.push(VaoItem(pointBuffer, POINT_COUNT));
 
 		generateAndDrawSecondaryPoints();
 
@@ -282,10 +285,13 @@ void display(){
 	glDisable(GL_BLEND);
 	glDisableVertexAttribArray(0);
 
-	//glFlush();
-	//glFinish();
-
-	glfwSwapBuffers(WINDOW);
+	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
+		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
+	}
+	else{ //If we are debugging, we aren't going to show this on the window
+		glFlush();
+		glFinish();
+	}
 }
 
 /*
@@ -319,8 +325,13 @@ void fakeDraw(GLuint & vao){
 	glDisable(GL_BLEND);
 	glDisableVertexAttribArray(0);
 
-	glFlush();
-	glFinish();
+	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging, then this data isn't shown
+		glFlush();
+		glFinish();
+	}
+	else{ //If we are debugging, then draw this instead of the actual display data
+		glfwSwapBuffers(WINDOW);
+	}
 
 	//glfwSwapBuffers(WINDOW);
 }
@@ -340,37 +351,19 @@ const std::vector<Point> getPoints(int numPoints){
 	return points;
 }
 
-GLuint makePointVao(const Point * g_vertex_buffer_data, int numPoints){
+void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId){
 	/* Supposed to do this first, because they said so. */
-	GLuint VertexArrayID; 
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
+	glGenVertexArrays(1, &arrayId);
+	glBindVertexArray(arrayId);
 
-	GLuint vertexBuffer;
-	glGenBuffers(1, &vertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, numPoints * sizeof(Point), g_vertex_buffer_data, GL_STATIC_DRAW);
-
-	return vertexBuffer;
+	glGenBuffers(1, &bufferId);
+	glBindBuffer(GL_ARRAY_BUFFER, bufferId);
+	glBufferData(GL_ARRAY_BUFFER, numPoints * sizeof(Point), g_vertex_buffer_data, GL_DYNAMIC_DRAW);
 }
 
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints){
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, numPoints * sizeof(Point), g_vertex_buffer_data);
-}
-
-GLuint createIndexBuffer(int numPoints){
-	std::vector<unsigned short> indicies(numPoints);
-	for (int i = 0; i < numPoints; i += 1){
-		indicies[i] = i;
-	}
-
-	GLuint indexBufferId;
-	glGenBuffers(1, &indexBufferId);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferId);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, numPoints * sizeof(unsigned short), &indicies[0], GL_STATIC_DRAW);
-
-	return indexBufferId;
 }
 
 /*
@@ -443,7 +436,7 @@ void dispatchKeyPress(int pressedKey){
 	switch (pressedKey){
 		case(GLFW_KEY_1):
 			if (ModeState & MODE_SUBDIV){
-				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
 				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
 				ModeState |= value; //OR in the new value
 				ModeLevelChanged = true;
@@ -458,7 +451,7 @@ void dispatchKeyPress(int pressedKey){
 
 		case(GLFW_KEY_2):
 			if (ModeState & MODE_CATMULL){
-				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
 				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
 				ModeState |= value; //OR in the new value
 			}
@@ -469,7 +462,7 @@ void dispatchKeyPress(int pressedKey){
 			break;
 		case(GLFW_KEY_3):
 			if (ModeState & MODE_BEZIER){
-				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
+				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
 				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
 				ModeState |= value; //OR in the new value
 			}
@@ -477,6 +470,9 @@ void dispatchKeyPress(int pressedKey){
 				ModeState = MODE_BEZIER;
 				std::cout << "Setting mode to BEZIER" << std::endl;
 			}
+			break;
+		case(GLFW_KEY_D) :
+			DEBUG_SELECTION_DRAW = !DEBUG_SELECTION_DRAW;
 			break;
 	}
 }
@@ -536,12 +532,13 @@ void generateAndDrawSecondaryPoints(){
 
 		Point * pointVerticies = &(secondaryPoints[subdivLevel][0]);
 		if (SecondaryVao == 0){
-			SecondaryVao = makePointVao(pointVerticies,secondaryPointCount);
+			makePointVao(pointVerticies, secondaryPointCount, SecondaryVao, SecondaryVaoArray);
 		}
 		else{
 			if (ModeLevelChanged){
 				glDeleteBuffers(1, &SecondaryVao);
-				SecondaryVao = makePointVao(pointVerticies, secondaryPointCount);
+				glDeleteVertexArrays(1, &SecondaryVaoArray);
+				makePointVao(pointVerticies, secondaryPointCount, SecondaryVao, SecondaryVaoArray);
 				ModeLevelChanged = false;
 			}
 			else{
