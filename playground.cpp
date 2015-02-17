@@ -24,9 +24,10 @@
 
 struct VaoItem{
 	GLuint bufferId;
+	GLuint arrayId;
 	int itemCount;
 
-	VaoItem(GLuint id, int count) :bufferId(id), itemCount(count){}
+	VaoItem(GLuint id, GLuint aid, int count) :bufferId(id), arrayId(aid), itemCount(count){}
 };
 
 /** FUNCTION HEADERS **/
@@ -34,7 +35,7 @@ const std::vector<Point> getPoints(int numPoints);
 void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId);
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 void display();
-void fakeDraw(GLuint & vao);
+void drawHidden();
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
@@ -74,6 +75,7 @@ std::vector<Point> * POINTS;
 std::vector<int> LISTENED_KEYS;
 std::vector<int> PRESSED_KEYS; 
 std::queue<VaoItem> DisplayQueue;
+std::queue<VaoItem> HiddenDisplayQueue;
 
 GLuint SecondaryVao = 0;
 GLuint SecondaryVaoArray = 0;
@@ -154,7 +156,9 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				fakeDraw(pointBuffer);
+				HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT));
+				drawHidden();
+
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 				// Read the pixel at the center of the screen.
@@ -236,7 +240,7 @@ int main(){
 
 		glUseProgram(programID); //Use the normal shaders
 		//display(pointBuffer); //Draw the boxes
-		DisplayQueue.push(VaoItem(pointBuffer, POINT_COUNT));
+		DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT));
 
 		generateAndDrawSecondaryPoints();
 
@@ -259,9 +263,6 @@ void display(){
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glPointSize(POINT_SIZE);
@@ -269,6 +270,10 @@ void display(){
 
 	while (!DisplayQueue.empty()){
 		VaoItem vao = DisplayQueue.front();
+
+		glBindVertexArray(vao.arrayId);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
 
 		glBindBuffer(GL_ARRAY_BUFFER, vao.bufferId);
 		glVertexAttribPointer(0, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies 
@@ -298,7 +303,7 @@ void display(){
  * Draw the boxes to the buffer, but don't swap them into the window buffer.
  * Used to keep track of where on the screen the user is clicking.
  */
-void fakeDraw(GLuint & vao){
+void drawHidden(){
 	static const size_t pointIdOffset = 0;
 	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
 	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
@@ -306,17 +311,29 @@ void fakeDraw(GLuint & vao){
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f); //blue screen of death
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_POINT_SMOOTH);
 	glPointSize(POINT_SIZE);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vao);
-	glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(Point), (GLvoid*)pointIdOffset); //Id 
-	glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies
+	while (!HiddenDisplayQueue.empty()){
+		VaoItem vao = HiddenDisplayQueue.front();
+
+		glBindVertexArray(vao.arrayId);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vao.bufferId);
+		glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(Point), (GLvoid*)pointIdOffset); //Id 
+		glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies
+
+		glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
+
+		HiddenDisplayQueue.pop();
+
+	}
+
+	
 
 	glDrawArrays(GL_POINTS, 0, POINT_COUNT * sizeof(Point));
 
@@ -546,6 +563,6 @@ void generateAndDrawSecondaryPoints(){
 			}
 		}
 		
-		DisplayQueue.push(VaoItem(SecondaryVao, secondaryPointCount));
+		DisplayQueue.push(VaoItem(SecondaryVao, SecondaryVaoArray, secondaryPointCount));
 	}
 }
