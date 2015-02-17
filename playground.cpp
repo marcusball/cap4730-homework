@@ -48,6 +48,7 @@ void generateAndDrawSecondaryPoints();
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
+const float POINT_SIZE = 8.0f;
 const unsigned int VERTEX_DIMENSIONS = 4; // 3D space
 const unsigned int RESOLUTION_WIDTH = 1024;
 const unsigned int RESOLUTION_HEIGHT = 768;
@@ -79,6 +80,7 @@ GLuint SecondaryVao = 0;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
+bool ModeLevelChanged = false;
 
 
 int main(){
@@ -259,7 +261,7 @@ void display(){
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glPointSize(20.0);
+	glPointSize(POINT_SIZE);
 	glEnable(GL_POINT_SMOOTH);
 
 	while (!DisplayQueue.empty()){
@@ -304,7 +306,7 @@ void fakeDraw(GLuint & vao){
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_POINT_SMOOTH);
-	glPointSize(20.0);
+	glPointSize(POINT_SIZE);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vao);
 	glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(Point), (GLvoid*)pointIdOffset); //Id 
@@ -444,6 +446,7 @@ void dispatchKeyPress(int pressedKey){
 				int value = ((ModeState & 0x0f) + 1) % 16; //We'll allow a max of 16 different subdiv states
 				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
 				ModeState |= value; //OR in the new value
+				ModeLevelChanged = true;
 
 				std::cout << "Subdiv level is now " << value << std::endl;
 			}
@@ -504,7 +507,6 @@ void generateAndDrawSecondaryPoints(){
 	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
 		unsigned int subdivLevel = ModeState & 0x0f;
 		if (subdivLevel == 0){
-			std::cout << "zero" << std::endl;
 			return; //If level is zero, we're not even going to draw any points
 		}
 
@@ -537,8 +539,14 @@ void generateAndDrawSecondaryPoints(){
 			SecondaryVao = makePointVao(pointVerticies,secondaryPointCount);
 		}
 		else{
-			glDeleteBuffers(1, &SecondaryVao);
-			SecondaryVao = makePointVao(pointVerticies, secondaryPointCount);
+			if (ModeLevelChanged){
+				glDeleteBuffers(1, &SecondaryVao);
+				SecondaryVao = makePointVao(pointVerticies, secondaryPointCount);
+				ModeLevelChanged = false;
+			}
+			else{
+				updatePointVao(SecondaryVao, pointVerticies, secondaryPointCount);
+			}
 		}
 		
 		DisplayQueue.push(VaoItem(SecondaryVao, secondaryPointCount));
