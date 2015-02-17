@@ -502,8 +502,9 @@ void handleModeState(){
 
 void generateAndDrawSecondaryPoints(){
 	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
-		int subdivLevel = ModeState & 0x0f;
+		unsigned int subdivLevel = ModeState & 0x0f;
 		if (subdivLevel == 0){
+			std::cout << "zero" << std::endl;
 			return; //If level is zero, we're not even going to draw any points
 		}
 
@@ -536,7 +537,8 @@ void generateAndDrawSecondaryPoints(){
 			SecondaryVao = makePointVao(pointVerticies,secondaryPointCount);
 		}
 		else{
-			updatePointVao(SecondaryVao, pointVerticies, secondaryPointCount);
+			glDeleteBuffers(1, &SecondaryVao);
+			SecondaryVao = makePointVao(pointVerticies, secondaryPointCount);
 		}
 		
 		DisplayQueue.push(VaoItem(SecondaryVao, secondaryPointCount));
