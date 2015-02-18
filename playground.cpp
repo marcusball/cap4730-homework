@@ -26,8 +26,9 @@ struct VaoItem{
 	GLuint bufferId;
 	GLuint arrayId;
 	int itemCount;
+	unsigned int drawMode;
 
-	VaoItem(GLuint id, GLuint aid, int count) :bufferId(id), arrayId(aid), itemCount(count){}
+	VaoItem(GLuint id, GLuint aid, int count, unsigned int mode) :bufferId(id), arrayId(aid), itemCount(count), drawMode(mode){}
 };
 
 /** FUNCTION HEADERS **/
@@ -45,6 +46,7 @@ void registerListenedKey(int key);
 bool keyHasBeenPressed(int key);
 void dispatchKeyPress(int pressedKey);
 void generateAndDrawSecondaryPoints();
+void createLineVerticesFromPoints(std::vector<Point> pointVector, std::vector<Point> & lineVector);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -60,6 +62,9 @@ const unsigned int MOUSE_HAS_CLICKED = MOUSE_PRESSED | MOUSE_HELD;
 const unsigned int MODE_SUBDIV = 64;
 const unsigned int MODE_CATMULL = 128;
 const unsigned int MODE_BEZIER = 256;
+
+const unsigned int DRAW_MODE_POINTS = 0;
+const unsigned int DRAW_MODE_LINES = 1;
 
 const float RED[4] = { 1.f, 0.f, 0.f, 1.f };
 const float YELLOW[4] = { 1.f, 1.f, 0.f, 1.f };
@@ -77,8 +82,10 @@ std::vector<int> PRESSED_KEYS;
 std::queue<VaoItem> DisplayQueue;
 std::queue<VaoItem> HiddenDisplayQueue;
 
+GLuint SecondaryVbo = 0;
 GLuint SecondaryVao = 0;
-GLuint SecondaryVaoArray = 0;
+GLuint SecondaryLineVbo = 0;
+GLuint SecondaryLineVao = 0;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
@@ -126,7 +133,7 @@ int main(){
 	/*********************************************/
 	std::vector<Point> points = getPoints(POINT_COUNT);
 	POINTS = &points;
-	const Point * pointVerticies = &(*POINTS)[0];
+	Point * pointVerticies = &(*POINTS)[0];
 	GLuint pointBuffer;
 	GLuint pointBufferArray;
 	makePointVao(pointVerticies, POINT_COUNT, pointBuffer ,pointBufferArray);
@@ -147,8 +154,10 @@ int main(){
 	do{
 		
 		// update vertex buffer each frame so that shaders can use updated vertex data (HINT: useful when dragging, changing color)
-		glBindBuffer(GL_ARRAY_BUFFER, pointBuffer);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, POINT_COUNT * VERTEX_DIMENSIONS * sizeof(GLfloat), pointVerticies);	// update buffer data
+		//glBindBuffer(GL_ARRAY_BUFFER, pointBuffer);
+		//glBufferSubData(GL_ARRAY_BUFFER, 0, POINT_COUNT * VERTEX_DIMENSIONS * sizeof(GLfloat), pointVerticies);	// update buffer data
+		//pointVerticies = &(*POINTS)[0];
+		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT);
 
 		// PICKING IS DONE HERE
 		if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
@@ -156,7 +165,7 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT));
+				HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 				drawHidden();
 
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -240,7 +249,7 @@ int main(){
 
 		glUseProgram(programID); //Use the normal shaders
 		//display(pointBuffer); //Draw the boxes
-		DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT));
+		DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
 		generateAndDrawSecondaryPoints();
 
@@ -279,19 +288,31 @@ void display(){
 		glVertexAttribPointer(0, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies 
 		glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointColorOffset); //Colors
 
-		glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
+		switch (vao.drawMode){
+		case(DRAW_MODE_LINES):
+			glDrawArrays(GL_LINES, 0, vao.itemCount * sizeof(Point));
+			break;
+		case(DRAW_MODE_POINTS) :
+		default:
+			glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
+			break;
+		}
+		
 
 		DisplayQueue.pop();
+
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
 
 	}
 
 	glDisable(GL_POINT_SMOOTH);
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
-	glDisableVertexAttribArray(0);
+	
 
 	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
-		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
+		//glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
 	}
 	else{ //If we are debugging, we aren't going to show this on the window
 		glFlush();
@@ -331,16 +352,18 @@ void drawHidden(){
 
 		HiddenDisplayQueue.pop();
 
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+
 	}
 
 	
 
-	glDrawArrays(GL_POINTS, 0, POINT_COUNT * sizeof(Point));
+	//glDrawArrays(GL_POINTS, 0, POINT_COUNT * sizeof(Point));
 
 	glDisable(GL_POINT_SMOOTH);
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
-	glDisableVertexAttribArray(0);
 
 	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging, then this data isn't shown
 		glFlush();
@@ -547,22 +570,55 @@ void generateAndDrawSecondaryPoints(){
 			}
 		}
 
+		std::vector<Point> linePoints(secondaryPointCount * 2);
+		createLineVerticesFromPoints(secondaryPoints[subdivLevel], linePoints);
+
 		Point * pointVerticies = &(secondaryPoints[subdivLevel][0]);
-		if (SecondaryVao == 0){
-			makePointVao(pointVerticies, secondaryPointCount, SecondaryVao, SecondaryVaoArray);
+		Point * linePointVerticies = &(linePoints[0]);
+		if (SecondaryVbo == 0){
+			makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
+			makePointVao(linePointVerticies, secondaryPointCount * 2, SecondaryLineVbo, SecondaryLineVao);
 		}
 		else{
 			if (ModeLevelChanged){
-				glDeleteBuffers(1, &SecondaryVao);
-				glDeleteVertexArrays(1, &SecondaryVaoArray);
-				makePointVao(pointVerticies, secondaryPointCount, SecondaryVao, SecondaryVaoArray);
+				glDeleteBuffers(1, &SecondaryVbo);
+				glDeleteVertexArrays(1, &SecondaryVao);
+				makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
+				makePointVao(linePointVerticies, secondaryPointCount * 2, SecondaryLineVbo, SecondaryLineVao);
 				ModeLevelChanged = false;
 			}
 			else{
-				updatePointVao(SecondaryVao, pointVerticies, secondaryPointCount);
+				updatePointVao(SecondaryVbo, pointVerticies, secondaryPointCount);
+				updatePointVao(SecondaryLineVbo, linePointVerticies, secondaryPointCount * 2);
 			}
+			//updatePointVao(SecondaryVbo, pointVerticies, secondaryPointCount);
+			//updatePointVao(SecondaryLineVbo, linePointVerticies, secondaryPointCount * 2);
 		}
 		
-		DisplayQueue.push(VaoItem(SecondaryVao, SecondaryVaoArray, secondaryPointCount));
+		DisplayQueue.push(VaoItem(SecondaryLineVbo, SecondaryLineVao, secondaryPointCount, DRAW_MODE_LINES)); //Draw lines first
+		DisplayQueue.push(VaoItem(SecondaryVbo, SecondaryVao, secondaryPointCount, DRAW_MODE_POINTS));
+	}
+}
+
+void createLineVerticesFromPoints(std::vector<Point> pointVector, std::vector<Point> & lineVector){
+	int lsize = lineVector.size();
+	for (int i = 0; i < pointVector.size(); i += 1){
+		int i2 = (i + 1) % pointVector.size(); //wrap around to beginning to complete
+		
+		if (2 * i < lsize){ //If lineVector has already been initialized, and there's room for this item
+			lineVector[2 * i] = pointVector[i];
+		}
+		else{
+			lineVector.push_back(pointVector[i]);
+		}
+		lineVector[2 * i].setRGBA(WHITE);
+
+		if (2 * i + 1 < lsize){ //If lineVector has already been initialized, and there's room for this item
+			lineVector[2 * i + 1] = pointVector[i2];
+		}
+		else{
+			lineVector.push_back(pointVector[i2]);
+		}
+		lineVector[2 * i + 1].setRGBA(WHITE);
 	}
 }
