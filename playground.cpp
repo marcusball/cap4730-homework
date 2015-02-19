@@ -39,7 +39,8 @@ void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bu
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 void display();
 void drawPolygon(Polygon polygon, bool swapToWindow);
-void drawHidden();
+void drawPolygons();
+//void drawHidden();
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
@@ -82,8 +83,8 @@ GLFWwindow * WINDOW;
 std::vector<Point> * POINTS;
 std::vector<int> LISTENED_KEYS;
 std::vector<int> PRESSED_KEYS; 
-std::queue<VaoItem> DisplayQueue;
-std::queue<VaoItem> HiddenDisplayQueue;
+std::queue<Polygon> DisplayQueue;
+//std::queue<VaoItem> HiddenDisplayQueue;
 
 GLuint SecondaryVbo = 0;
 GLuint SecondaryVao = 0;
@@ -168,7 +169,7 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
+				//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
 				Polygon testPolygon2;
 				testPolygon2.init(POINTS);
@@ -261,11 +262,12 @@ int main(){
 
 		Polygon testPolygon;
 		testPolygon.init(POINTS);
-		
-		//generateAndDrawSecondaryPoints();
 
-		drawPolygon(testPolygon, true);
-		//display();
+		DisplayQueue.push(testPolygon);
+		
+		generateAndDrawSecondaryPoints();
+
+		drawPolygons();
 
 		glfwPollEvents();
 
@@ -276,7 +278,7 @@ int main(){
 /* 
  * Draw the boxes to the screen!
  */
-void display(){
+/*void display(){
 	static const size_t pointIdOffset = 0;
 	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
 	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
@@ -330,7 +332,7 @@ void display(){
 		glFlush();
 		glFinish();
 	}
-}
+}*/
 
 void drawPolygon(Polygon polygon, bool swapToWindow){
 	if (swapToWindow){
@@ -359,11 +361,39 @@ void drawPolygon(Polygon polygon, bool swapToWindow){
 	}
 }
 
+void drawPolygons(){
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	while (!DisplayQueue.empty()){
+		Polygon top = DisplayQueue.front();
+
+		top.render();
+
+		DisplayQueue.pop();
+	}
+
+	glBlendFunc(GL_NONE, GL_NONE);
+	glDisable(GL_BLEND);
+
+
+	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
+		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
+	}
+	else{ //If we are debugging, we aren't going to show this on the window
+		glFlush();
+		glFinish();
+	}
+}
+
 /*
  * Draw the boxes to the buffer, but don't swap them into the window buffer.
  * Used to keep track of where on the screen the user is clicking.
  */
-void drawHidden(){
+/*void drawHidden(){
 	static const size_t pointIdOffset = 0;
 	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
 	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
@@ -414,7 +444,7 @@ void drawHidden(){
 
 	//glfwSwapBuffers(WINDOW);
 }
-
+*/
 const std::vector<Point> getPoints(int numPoints){
 	srand(time(NULL)); //for rand()
 	std::vector<Point> points(0);
@@ -600,9 +630,11 @@ void generateAndDrawSecondaryPoints(){
 
 				(*P_k)[2 * i] = ((*P_km1)[im1] * 4.0f + (*P_km1)[i] * 4.f) / 8.0f;
 				(*P_k)[2 * i].setRGBA(CYAN);
+				(*P_k)[2 * i].pointSize = 5.f;
 
 				(*P_k)[2 * i + 1] = ((*P_km1)[im1] + ((*P_km1)[i] * 6) + (*P_km1)[ip1]) / 8.0f;
 				(*P_k)[2 * i + 1].setRGBA(CYAN);
+				(*P_k)[2 * i + 1].pointSize = 5.f;
 			}
 
 			if (k - 1 != 0){ //If k-1 = 0, then P_km1 is POINTS, which we don't want to delete
@@ -611,10 +643,16 @@ void generateAndDrawSecondaryPoints(){
 			P_km1 = P_k; //Swap over
 		}
 
-		std::vector<Point> linePoints(secondaryPointCount * 2);
-		createLineVerticesFromPoints(*P_k, linePoints);
+		//std::vector<Point> linePoints(secondaryPointCount * 2);
+		//createLineVerticesFromPoints(*P_k, linePoints);
 
-		Point * pointVerticies = &((*P_k)[0]);
+		Polygon subdivPoly;
+		subdivPoly.init(P_k);
+
+		//drawPolygon(subdivPoly, true);
+		DisplayQueue.push(subdivPoly);
+
+		/*Point * pointVerticies = &((*P_k)[0]);
 		Point * linePointVerticies = &(linePoints[0]);
 		if (SecondaryVbo == 0){
 			makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
@@ -635,7 +673,7 @@ void generateAndDrawSecondaryPoints(){
 		}
 		
 		DisplayQueue.push(VaoItem(SecondaryLineVbo, SecondaryLineVao, secondaryPointCount, DRAW_MODE_LINES)); //Draw lines first
-		DisplayQueue.push(VaoItem(SecondaryVbo, SecondaryVao, secondaryPointCount, DRAW_MODE_POINTS));
+		DisplayQueue.push(VaoItem(SecondaryVbo, SecondaryVao, secondaryPointCount, DRAW_MODE_POINTS));*/
 
 		delete P_k;
 	}

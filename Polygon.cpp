@@ -41,7 +41,6 @@ void Polygon::createCircle(std::vector<Point> * const points){
 	indices.reserve(this->vertexCount);
 
 	for (int i = 0; i < transformedPoints.size(); i += 1){
-		transformedPoints[i].setRGBA(1.f, 0.f, 0.f, 1.f);
 		this->handlePoint(transformedPoints[i], ids, positions, colors, pointSizes);
 		indices.push_back(i);
 	}
