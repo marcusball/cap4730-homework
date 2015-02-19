@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <cstdlib>
 #include <vector>
+#include <list>
 #include <iostream>
 #include <time.h>
 #include <math.h>
@@ -20,6 +21,7 @@
 
 #include "common\shader.hpp"
 #include "Point.h"
+#include "Polygon.h"
 
 
 struct VaoItem{
@@ -36,6 +38,7 @@ const std::vector<Point> getPoints(int numPoints);
 void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId);
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 void display();
+void drawPolygon(Polygon polygon, bool swapToWindow);
 void drawHidden();
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
@@ -166,7 +169,10 @@ int main(){
 			glUseProgram(pickingProgramID);
 			{
 				HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
-				drawHidden();
+
+				Polygon testPolygon2;
+				testPolygon2.init(POINTS);
+				drawPolygon(testPolygon2, false);
 
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -200,6 +206,7 @@ int main(){
 						selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
 						if (selectedPoint != NULL){ //Make sure something didn't go wrong
 							selectedPoint->setRGBA(RED);
+							selectedPoint->pointSize *= 2.f;
 							//selectedPoint->invertColor();
 
 							//Update the reference points so our conversion math works in the next states (see above).
@@ -238,6 +245,7 @@ int main(){
 					//selectedPoint->setRGBA(1.f, 0.f, 0.f, 1.f); //Return the point to its original color.
 					//selectedPoint->invertColor();
 					selectedPoint->setRGBA(WHITE);
+					selectedPoint->pointSize /= 2.f;
 				}
 
 				selectedPoint = NULL; //clear it, just to be safe
@@ -245,15 +253,19 @@ int main(){
 			}
 		}
 
-		updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
+		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
 		//display(pointBuffer); //Draw the boxes
-		DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
+		//DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
-		generateAndDrawSecondaryPoints();
+		Polygon testPolygon;
+		testPolygon.init(POINTS);
+		
+		//generateAndDrawSecondaryPoints();
 
-		display();
+		drawPolygon(testPolygon, true);
+		//display();
 
 		glfwPollEvents();
 
@@ -312,7 +324,34 @@ void display(){
 	
 
 	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
-		//glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
+		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
+	}
+	else{ //If we are debugging, we aren't going to show this on the window
+		glFlush();
+		glFinish();
+	}
+}
+
+void drawPolygon(Polygon polygon, bool swapToWindow){
+	if (swapToWindow){
+		glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
+	}
+	else{
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	polygon.render();
+
+	glBlendFunc(GL_NONE, GL_NONE);
+	glDisable(GL_BLEND);
+
+
+	if (swapToWindow ^ DEBUG_SELECTION_DRAW){ //If we're not debugging,
+		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
 	}
 	else{ //If we are debugging, we aren't going to show this on the window
 		glFlush();
@@ -546,34 +585,36 @@ void generateAndDrawSecondaryPoints(){
 			return; //If level is zero, we're not even going to draw any points
 		}
 
-		int secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
+		long secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
 		int pointSetCount = subdivLevel + 1;
-		std::vector<std::vector<Point>> secondaryPoints;
-		secondaryPoints.push_back(*POINTS);
+		std::vector<Point> * P_km1 = POINTS; //Initialize P_k-1 as POINTS, because this is P_k where k=0.
+		std::vector<Point> * P_k;
 
-		std::vector<Point> tempVector;
-		std::vector<std::vector<Point>> & P = secondaryPoints; //Lazy alias
 		for (int k = 1; k < pointSetCount; k += 1){
-			int kCount = POINT_COUNT * std::pow(2, k);
-			std::vector<Point> temp(kCount);
-			P.push_back(std::vector<Point>(kCount));
+			long kCount = POINT_COUNT * std::pow(2, k);
+			P_k = new std::vector<Point>(kCount);
 
 			for (int i = 0; i < kCount / 2; i += 1){
 				int im1 = (i - 1 >= 0) ? (i - 1) : (kCount/2 - 1);
 				int ip1 = (i + 1 < kCount/2) ? (i + 1) : 0;
 
-				P[k][2 * i] = (P[k - 1][im1] * 4.0f + P[k - 1][i] * 4.f) / 8.0f;
-				P[k][2 * i].setRGBA(CYAN);
+				(*P_k)[2 * i] = ((*P_km1)[im1] * 4.0f + (*P_km1)[i] * 4.f) / 8.0f;
+				(*P_k)[2 * i].setRGBA(CYAN);
 
-				P[k][2 * i + 1] = (P[k - 1][im1] + (P[k - 1][i] * 6) + P[k - 1][ip1]) / 8.0f;
-				P[k][2 * i + 1].setRGBA(CYAN);
+				(*P_k)[2 * i + 1] = ((*P_km1)[im1] + ((*P_km1)[i] * 6) + (*P_km1)[ip1]) / 8.0f;
+				(*P_k)[2 * i + 1].setRGBA(CYAN);
 			}
+
+			if (k - 1 != 0){ //If k-1 = 0, then P_km1 is POINTS, which we don't want to delete
+				delete P_km1;
+			}
+			P_km1 = P_k; //Swap over
 		}
 
 		std::vector<Point> linePoints(secondaryPointCount * 2);
-		createLineVerticesFromPoints(secondaryPoints[subdivLevel], linePoints);
+		createLineVerticesFromPoints(*P_k, linePoints);
 
-		Point * pointVerticies = &(secondaryPoints[subdivLevel][0]);
+		Point * pointVerticies = &((*P_k)[0]);
 		Point * linePointVerticies = &(linePoints[0]);
 		if (SecondaryVbo == 0){
 			makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
@@ -591,12 +632,12 @@ void generateAndDrawSecondaryPoints(){
 				updatePointVao(SecondaryVbo, pointVerticies, secondaryPointCount);
 				updatePointVao(SecondaryLineVbo, linePointVerticies, secondaryPointCount * 2);
 			}
-			//updatePointVao(SecondaryVbo, pointVerticies, secondaryPointCount);
-			//updatePointVao(SecondaryLineVbo, linePointVerticies, secondaryPointCount * 2);
 		}
 		
 		DisplayQueue.push(VaoItem(SecondaryLineVbo, SecondaryLineVao, secondaryPointCount, DRAW_MODE_LINES)); //Draw lines first
 		DisplayQueue.push(VaoItem(SecondaryVbo, SecondaryVao, secondaryPointCount, DRAW_MODE_POINTS));
+
+		delete P_k;
 	}
 }
 

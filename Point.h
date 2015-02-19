@@ -1,4 +1,6 @@
 #pragma once
+#include "Vectors.h"
+
 class Point
 {
 public:
@@ -7,12 +9,13 @@ public:
 	~Point();
 
 	const unsigned int id;
-
-	float XYZW[4];
-	float RGBA[4];
+	Vector4f XYZW;
+	Vector4f RGBA;
+	float pointSize = 10.0f;
 
 	void setRGBA(float r, float g, float b, float a);
 	void setRGBA(const float * rgba);
+	void setRGBA(Vector4f color);
 	void invertColor();
 
 	Point operator -(const Point& a)const {

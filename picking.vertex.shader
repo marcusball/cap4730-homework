@@ -3,10 +3,12 @@
 // Input vertex data, different for all executions of this shader.
 layout(location = 0) in uint pointId;
 layout(location = 1) in vec4 vertexPosition_modelspace;
+layout(location = 3) in float vertexSize;
 
 out vec4 vs_vertexColor;
 void main(){
 	gl_Position = vertexPosition_modelspace;
+	gl_PointSize = vertexSize;
 
 	float colorId = pointId / 255.0;
 

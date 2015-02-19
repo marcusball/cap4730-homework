@@ -30,6 +30,9 @@ Point::~Point()
 {
 }
 
+void Point::setRGBA(Vector4f color){
+	this->setRGBA(color[0], color[1], color[2], color[3]);
+}
 void Point::setRGBA(float r, float g, float b, float a){
 	RGBA[0] = r;
 	RGBA[1] = g;
