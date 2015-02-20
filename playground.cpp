@@ -50,6 +50,7 @@ void dispatchKeyPress(int pressedKey);
 void generateSecondaryPoints();
 float getPointDistance(Point a, Point b);
 Vector4f normalizeVector(Vector4f input);
+Point deCasteljau(const std::vector<Point> * P, float t);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -93,6 +94,7 @@ unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
 bool ModeLevelChanged = false;
 bool DEBUG_SELECTION_DRAW = false;
+bool HideSelectionPoints = false;
 
 
 int main(){
@@ -127,6 +129,7 @@ int main(){
 	registerListenedKey(GLFW_KEY_1);
 	registerListenedKey(GLFW_KEY_2);
 	registerListenedKey(GLFW_KEY_3);
+	registerListenedKey(GLFW_KEY_H);
 	registerListenedKey(GLFW_KEY_D);
 
 	/*********************************************/
@@ -252,8 +255,10 @@ int main(){
 
 		generateSecondaryPoints(); //Placing this before we queue the primary points, so the primary points get drawn on top
 
-		DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
-		DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+		if (!HideSelectionPoints){
+			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
+			DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+		}
 
 
 		drawPolygons();
@@ -433,8 +438,18 @@ void dispatchKeyPress(int pressedKey){
 			secondaryPolygon.clear();
 			secondaryLinePolygon.clear();
 
-			ModeState = MODE_CATMULL;
-			std::cout << "Setting mode to CATMULL" << std::endl;
+			if(ModeState & MODE_CATMULL){
+				int value = ((ModeState & 0x01) + 1) % 2; //We'll allow a max of 2 different subdiv states
+				ModeState &= ~0x01; //Clear out the last 4 bits, reset to zero. 
+				ModeState |= value; //OR in the new value
+				ModeLevelChanged = true;
+
+				std::cout << "Catmull mode is now " << value << std::endl;
+			}
+			else{
+				ModeState = MODE_CATMULL;
+				std::cout << "Setting mode to CATMULL" << std::endl;
+			}
 			break;
 		case(GLFW_KEY_3):
 			secondaryPolygon.clear();
@@ -445,6 +460,15 @@ void dispatchKeyPress(int pressedKey){
 			break;
 		case(GLFW_KEY_D) :
 			DEBUG_SELECTION_DRAW = !DEBUG_SELECTION_DRAW;
+			break;
+		case(GLFW_KEY_H) :
+			HideSelectionPoints = !HideSelectionPoints;
+			if (HideSelectionPoints){
+				std::cout << "Hiding selection points" << std::endl;
+			}
+			else{
+				std::cout << "Showing selection points" << std::endl;
+			}
 			break;
 	}
 }
@@ -507,6 +531,7 @@ void generateSecondaryPoints(){
 		}
 
 		if (!secondaryPolygon.isInitialized()){
+			secondaryPolygon.setColor(CYAN);
 			secondaryPolygon.init(P_k);
 
 			secondaryLinePolygon.setColor(CYAN);
@@ -531,10 +556,12 @@ void generateSecondaryPoints(){
 		delete P_k;
 	}
 	if (ModeState & MODE_CATMULL){
+		unsigned int drawMode = ModeState & 0x01;
+
 		int secondaryPointCount = POINT_COUNT * 3;
 		std::vector<Point> & P = *POINTS;
 
-		std::vector<Point> controlPoints(secondaryPointCount - 1); //-1 because the end point = start point
+		std::vector<Point> controlPoints(secondaryPointCount); //-1 because the end point = start point
 
 		int plen = P.size();
 		for (int i = 0; i < plen; i += 1){
@@ -555,8 +582,8 @@ void generateSecondaryPoints(){
 			//  the next control point, c_i1,
 			//  and the previous control point, c_(i-1)2
 			int currentControlIndex = 3 * i;
-			int forwardControlIndex = (3 * i + 1) % secondaryPointCount;
-			int backwardControlIndex = (i != 0)?(3 * i - 1):(secondaryPointCount - 1 - 1);
+			int forwardControlIndex = (3 * i + 1) % (secondaryPointCount - 1);
+			int backwardControlIndex = (i != 0)?(3 * i - 1):(secondaryPointCount - 1);
 
 			//Have the position vector for P[i] handy
 			Vector4f Pkpos = P[i].XYZW;
@@ -576,10 +603,6 @@ void generateSecondaryPoints(){
 				Pkpos[2] + ((-0.3f * distanceBackward) * tangent[2]), //Z
 				1.f
 			} };
-			
-			//controlPoints.emplace(controlPoints.begin() + currentControlIndex, P[i]);  //Place the current control point
-			//controlPoints.emplace(controlPoints.begin() + forwardControlIndex, forwardControlPosition); //place and construct the next control point
-			//controlPoints.emplace(controlPoints.begin() + backwardControlIndex, backwardControlPosition); //place and construct the previous control point
 
 			controlPoints[currentControlIndex] = P[i];
 			controlPoints[forwardControlIndex] = Point(forwardControlPosition);
@@ -590,16 +613,47 @@ void generateSecondaryPoints(){
 			controlPoints[backwardControlIndex].pointSize = 3.f;
 		}
 
-		if (!secondaryPolygon.isInitialized()){
-			secondaryPolygon.setColor(RED);
-			secondaryPolygon.init(&controlPoints);
+		if (drawMode == 0){ 
+			int pointsPerSegment = 15;
+			std::vector<Point> vertices; 
+			vertices.reserve(POINT_COUNT * pointsPerSegment);
+			
+			for (int i = 0; i < POINT_COUNT; i += 1){
+				std::vector<Point> segment(4);
+				for (int j = 0; j < 4; j += 1){
+					segment[j] = controlPoints[(i * 3 + j) % (secondaryPointCount)]; 
+				}
 
-			secondaryLinePolygon.setColor(RED);
-			secondaryLinePolygon.init(&controlPoints);
+				for (int k = 0; k < pointsPerSegment; k += 1){
+					float u = (float)k / (float)(pointsPerSegment + 1); //I don't want this to ever hit 1, since it'll overlap with the next segment
+					vertices.push_back(deCasteljau(&segment, u));
+				}
+			}
+
+			if (!secondaryPolygon.isInitialized()){
+				secondaryPolygon.setColor(RED);
+				secondaryPolygon.init(&controlPoints);
+
+				secondaryLinePolygon.setColor(RED);
+				secondaryLinePolygon.init(&vertices);
+			}
+			else{
+				secondaryPolygon.update(&controlPoints);
+				secondaryLinePolygon.update(&vertices);
+			}
 		}
-		else{
-			secondaryPolygon.update(&controlPoints);
-			secondaryLinePolygon.update(&controlPoints);
+		else if(drawMode == 1){//Drawing just the control points
+			if (!secondaryPolygon.isInitialized()){
+				secondaryPolygon.setColor(RED);
+				secondaryPolygon.init(&controlPoints);
+
+				secondaryLinePolygon.setColor(RED);
+				secondaryLinePolygon.init(&controlPoints);
+			}
+			else{
+				secondaryPolygon.update(&controlPoints);
+				secondaryLinePolygon.update(&controlPoints);
+			}
 		}
 
 		//drawPolygon(subdivPoly, true);
@@ -630,4 +684,19 @@ Vector4f normalizeVector(Vector4f input){
 		returnVector[3] /= magnitude;
 	}
 	return returnVector;
+}
+
+//Used algorithm from http://www.cs.mtu.edu/~shene/COURSES/cs3621/NOTES/spline/Bezier/de-casteljau.html
+Point deCasteljau(const std::vector<Point> * P, float t){
+	if (t < 0 || t > 1){
+		throw std::exception();
+	}
+
+	std::vector<Point> Q(*P);
+	for (int k = 1; k < P->size(); k += 1){
+		for (int i = 0; i < (P->size() - k); i += 1){
+			Q[i] = Q[i] * (1.f - t) + Q[i + 1] * t;
+		}
+	}
+	return Q[0];
 }
