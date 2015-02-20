@@ -43,7 +43,7 @@ float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
 void placePointOnCircle(int i, int n, Point & p);
-void handleModeState();
+bool handleModeState();
 void registerListenedKey(int key);
 bool keyHasBeenPressed(int key);
 void dispatchKeyPress(int pressedKey);
@@ -150,13 +150,21 @@ int main(){
 	
 
 	Point * selectedPoint = NULL; //Pointer to the selected Point object; populated when user clicks on a point. 
-
+	bool requiresRefresh = true;
 	//Just some variables that will be used to calculate the conversion between screen coordinates and vertex coordinates.
 	float m_x = 2.0f / RESOLUTION_WIDTH;
 	float m_y = -2.0f / RESOLUTION_HEIGHT;
 	float x_0, x_1;
 	float y_0, y_1;
 	do{
+		if (requiresRefresh){
+			primaryPolygon.update(POINTS);
+			primaryLinePolygon.update(POINTS);
+			generateSecondaryPoints();
+
+			requiresRefresh = false;
+		}
+
 		// PICKING IS DONE HERE
 		if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
 			mouseState |= MOUSE_PRESSED; 
@@ -216,6 +224,7 @@ int main(){
 						//Update the mouse state
 						mouseState = MOUSE_HELD;
 					}
+					requiresRefresh = true;
 				}
 				else{
 					//This is for the case where you move your mouse so fast that the cursor actually stops pointing at the box,
@@ -229,6 +238,7 @@ int main(){
 							selectedPoint->XYZW[1] = y_n;
 						}
 					}
+					requiresRefresh = true;
 				}
 			}
 		}
@@ -243,6 +253,7 @@ int main(){
 
 				selectedPoint = NULL; //clear it, just to be safe
 				mouseState = 0; //Return the mouse state to 0 (no click events present)
+				requiresRefresh = true;
 			}
 		}
 
@@ -250,10 +261,8 @@ int main(){
 
 		glUseProgram(programID); //Use the normal shaders
 
-		primaryPolygon.update(POINTS);
-		primaryLinePolygon.update(POINTS);
-
-		generateSecondaryPoints(); //Placing this before we queue the primary points, so the primary points get drawn on top
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
 
 		if (!HideSelectionPoints){
 			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
@@ -264,7 +273,7 @@ int main(){
 		drawPolygons();
 
 		glfwPollEvents();
-		handleModeState(); //Check for input and change the mode state appropriately
+		requiresRefresh |= handleModeState(); //Check for input and change the mode state appropriately
 	} while (glfwGetKey(WINDOW, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(WINDOW) == 0);
 }
 
@@ -418,7 +427,7 @@ void dispatchKeyPress(int pressedKey){
 	switch (pressedKey){
 		case(GLFW_KEY_1):
 			if (ModeState & MODE_SUBDIV){
-				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
+				int value = ((ModeState & 0x0f) + 0x01) % 11; //We'll allow a max of 16 different subdiv states
 				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
 				ModeState |= value; //OR in the new value
 				ModeLevelChanged = true;
@@ -476,8 +485,10 @@ void dispatchKeyPress(int pressedKey){
 /*
  * Loops through all of the keys registered in LISTENED_KEYS to check for key presses.
  * Will call dispatchKeyPress with the key value when a key is pressed and released. 
+ * Returns true if any input has been passed
  */
-void handleModeState(){
+bool handleModeState(){
+	bool keyPressed = false;
 	for (int i = 0; i < LISTENED_KEYS.size(); i += 1){
 		if (glfwGetKey(WINDOW, LISTENED_KEYS[i]) == GLFW_PRESS){
 			if (!keyHasBeenPressed(LISTENED_KEYS[i])){
@@ -490,17 +501,17 @@ void handleModeState(){
 				PRESSED_KEYS.erase(std::remove(PRESSED_KEYS.begin(), PRESSED_KEYS.end(), LISTENED_KEYS[i]), PRESSED_KEYS.end());
 				
 				dispatchKeyPress(LISTENED_KEYS[i]); //Do something now that the key has been pressed (and released)
+				keyPressed = true;
 			}
 		}
 	}
+	return keyPressed;
 }
 
 void generateSecondaryPoints(){
 	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
 		unsigned int subdivLevel = ModeState & 0x0f;
-		if (subdivLevel == 0){
-			return; //If level is zero, we're not even going to draw any points
-		}
+		subdivLevel += 1;
 
 		long secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
 		int pointSetCount = subdivLevel + 1;
@@ -657,8 +668,8 @@ void generateSecondaryPoints(){
 		}
 
 		//drawPolygon(subdivPoly, true);
-		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+		//DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+		//DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
 	}
 }
 
