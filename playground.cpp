@@ -22,6 +22,7 @@
 #include "common\shader.hpp"
 #include "Point.h"
 #include "Polygon.h"
+#include "LinePolygon.h"
 
 
 struct VaoItem{
@@ -33,12 +34,23 @@ struct VaoItem{
 	VaoItem(GLuint id, GLuint aid, int count, unsigned int mode) :bufferId(id), arrayId(aid), itemCount(count), drawMode(mode){}
 };
 
+enum PolygonTypes{
+	Points,
+	Lines
+};
+
+struct PolygonQueueItem{
+	PolygonQueueItem(Polygon & p, PolygonTypes t):polygon(p), type(t){}
+	Polygon & polygon;
+	PolygonTypes type;
+};
+
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
 void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId);
 void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
 void display();
-void drawPolygon(Polygon polygon, bool swapToWindow);
+void drawPolygon(Polygon & polygon, bool swapToWindow);
 void drawPolygons();
 //void drawHidden();
 float randFloat(float min, float max);
@@ -49,7 +61,7 @@ void handleModeState();
 void registerListenedKey(int key);
 bool keyHasBeenPressed(int key);
 void dispatchKeyPress(int pressedKey);
-void generateAndDrawSecondaryPoints();
+void generateSecondaryPoints();
 void createLineVerticesFromPoints(std::vector<Point> pointVector, std::vector<Point> & lineVector);
 
 /** CONSTANTS **/
@@ -70,26 +82,26 @@ const unsigned int MODE_BEZIER = 256;
 const unsigned int DRAW_MODE_POINTS = 0;
 const unsigned int DRAW_MODE_LINES = 1;
 
-const float RED[4] = { 1.f, 0.f, 0.f, 1.f };
-const float YELLOW[4] = { 1.f, 1.f, 0.f, 1.f };
-const float GREEN[4] = { 0.f, 1.f, 0.f, 1.f };
-const float CYAN[4] = { 0.f, 1.f, 1.f, 1.f };
-const float BLUE[4] = { 0.f, 0.f, 1.f, 1.f };
-const float PURPLE[4] = { 1.f, 0.f, 1.f, 1.f };
-const float WHITE[4] = { 1.f, 1.f, 1.f, 1.f };
+const Vector4f RED = { 1.f, 0.f, 0.f, 1.f };
+const Vector4f YELLOW = { 1.f, 1.f, 0.f, 1.f };
+const Vector4f GREEN = { 0.f, 1.f, 0.f, 1.f };
+const Vector4f CYAN = { 0.f, 1.f, 1.f, 1.f };
+const Vector4f BLUE = { 0.f, 0.f, 1.f, 1.f };
+const Vector4f PURPLE = { 1.f, 0.f, 1.f, 1.f };
+const Vector4f WHITE = { 1.f, 1.f, 1.f, 1.f };
 
 /** GLOBAL VARIABLES **/
 GLFWwindow * WINDOW;
 std::vector<Point> * POINTS;
 std::vector<int> LISTENED_KEYS;
 std::vector<int> PRESSED_KEYS; 
-std::queue<Polygon> DisplayQueue;
+std::queue<PolygonQueueItem> DisplayQueue;
 //std::queue<VaoItem> HiddenDisplayQueue;
 
-GLuint SecondaryVbo = 0;
-GLuint SecondaryVao = 0;
-GLuint SecondaryLineVbo = 0;
-GLuint SecondaryLineVao = 0;
+Polygon primaryPolygon;
+LinePolygon primaryLinePolygon;
+Polygon secondaryPolygon;
+LinePolygon secondaryLinePolygon;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
@@ -137,10 +149,10 @@ int main(){
 	/*********************************************/
 	std::vector<Point> points = getPoints(POINT_COUNT);
 	POINTS = &points;
-	Point * pointVerticies = &(*POINTS)[0];
-	GLuint pointBuffer;
-	GLuint pointBufferArray;
-	makePointVao(pointVerticies, POINT_COUNT, pointBuffer ,pointBufferArray);
+
+	primaryPolygon.init(POINTS);
+	primaryLinePolygon.setColor(WHITE);
+	primaryLinePolygon.init(POINTS);
 
 	GLuint programID = LoadShaders("vertex.shader", "frag.shader");
 	GLuint pickingProgramID = LoadShaders("picking.vertex.shader", "picking.frag.shader");
@@ -171,9 +183,7 @@ int main(){
 			{
 				//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
-				Polygon testPolygon2;
-				testPolygon2.init(POINTS);
-				drawPolygon(testPolygon2, false);
+				drawPolygon(primaryPolygon, false);
 
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -260,12 +270,13 @@ int main(){
 		//display(pointBuffer); //Draw the boxes
 		//DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
-		Polygon testPolygon;
-		testPolygon.init(POINTS);
+		primaryPolygon.update(POINTS);
+		primaryLinePolygon.update(POINTS);
 
-		DisplayQueue.push(testPolygon);
+		DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
 		
-		generateAndDrawSecondaryPoints();
+		generateSecondaryPoints();
 
 		drawPolygons();
 
@@ -334,7 +345,7 @@ int main(){
 	}
 }*/
 
-void drawPolygon(Polygon polygon, bool swapToWindow){
+void drawPolygon(Polygon & polygon, bool swapToWindow){
 	if (swapToWindow){
 		glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
 	}
@@ -369,9 +380,17 @@ void drawPolygons(){
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	while (!DisplayQueue.empty()){
-		Polygon top = DisplayQueue.front();
+		PolygonQueueItem top = DisplayQueue.front();
 
-		top.render();
+		switch (top.type){
+		case (Points):
+			top.polygon.render();
+			break;
+		case(Lines) :
+			LinePolygon & polygonCast = static_cast<LinePolygon &>(top.polygon);
+			polygonCast.render();
+		}
+		
 
 		DisplayQueue.pop();
 	}
@@ -608,7 +627,7 @@ void handleModeState(){
 	}
 }
 
-void generateAndDrawSecondaryPoints(){
+void generateSecondaryPoints(){
 	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
 		unsigned int subdivLevel = ModeState & 0x0f;
 		if (subdivLevel == 0){
@@ -646,11 +665,27 @@ void generateAndDrawSecondaryPoints(){
 		//std::vector<Point> linePoints(secondaryPointCount * 2);
 		//createLineVerticesFromPoints(*P_k, linePoints);
 
-		Polygon subdivPoly;
-		subdivPoly.init(P_k);
+		if (!secondaryPolygon.isInitialized()){
+			secondaryPolygon.init(P_k);
+
+			secondaryLinePolygon.setColor(CYAN);
+			secondaryLinePolygon.init(P_k);
+		}
+		else{
+			if (ModeLevelChanged){
+				secondaryPolygon.init(P_k);
+				secondaryLinePolygon.init(P_k);
+				ModeLevelChanged = false;
+			}
+			else{
+				secondaryPolygon.update(P_k);
+				secondaryLinePolygon.update(P_k);
+			}
+		}
 
 		//drawPolygon(subdivPoly, true);
-		DisplayQueue.push(subdivPoly);
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
 
 		/*Point * pointVerticies = &((*P_k)[0]);
 		Point * linePointVerticies = &(linePoints[0]);

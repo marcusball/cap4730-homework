@@ -8,22 +8,25 @@ Polygon::Polygon()
 
 Polygon::~Polygon()
 {
+	this->clear();
 }
 
 void Polygon::init(std::vector<Point> * const points){
-	//this->clear(); //Release any other data, if it exists
+	this->clear(); //Release any other data, if it exists
+
+	this->isInit = true;
 
 	glGenVertexArrays(1, &polygonVAO);
 	glBindVertexArray(polygonVAO);
 
 	glGenBuffers(polygonBuffers.size(), &polygonBuffers[0]);
 
-	this->createCircle(points);
+	this->createVertexBuffers(points);
 
 	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
 }
 
-void Polygon::createCircle(std::vector<Point> * const points){
+void Polygon::createVertexBuffers(std::vector<Point> * const points){
 	std::vector<Point> transformedPoints;
 	this->pointTransform(points, transformedPoints);
 	this->vertexCount = transformedPoints.size();
@@ -70,6 +73,54 @@ void Polygon::createCircle(std::vector<Point> * const points){
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), &indices[0], GL_STATIC_DRAW);
 }
 
+void Polygon::update(std::vector<Point> * const points){
+	//this->clear(); //Release any other data, if it exists
+
+	glBindVertexArray(polygonVAO);
+
+	this->updateVertexBuffers(points);
+
+	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
+}
+
+void Polygon::updateVertexBuffers(std::vector<Point> * const points){
+	std::vector<Point> transformedPoints;
+	this->pointTransform(points, transformedPoints);
+	this->vertexCount = transformedPoints.size();
+
+	std::vector<unsigned int> ids;
+	std::vector<Vector4f> positions;
+	std::vector<Vector4f> colors;
+	std::vector<float> pointSizes;
+	std::vector<unsigned int> indices;
+
+	ids.reserve(this->vertexCount);
+	positions.reserve(this->vertexCount);
+	colors.reserve(this->vertexCount);
+	pointSizes.reserve(this->vertexCount);
+	indices.reserve(this->vertexCount);
+
+	for (int i = 0; i < transformedPoints.size(); i += 1){
+		this->handlePoint(transformedPoints[i], ids, positions, colors, pointSizes);
+		indices.push_back(i);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, polygonBuffers[ID_BUFFER]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(ids[0]) * ids.size(), &ids[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, polygonBuffers[POSITION_VB]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions[0]) * positions.size(), &positions[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, polygonBuffers[COLOR_VB]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(colors[0]) * colors.size(), &colors[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, polygonBuffers[POINT_SIZE_VB]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pointSizes[0]) * pointSizes.size(), &pointSizes[0]);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, polygonBuffers[INDEX_VB]);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(indices[0]) * indices.size(), &indices[0]);
+}
+
 /*
  * Do whatever is necessary to take the data from a point, and place it in the data arrays.
  */
@@ -89,7 +140,7 @@ void Polygon::pointTransform(std::vector<Point> * const points, std::vector<Poin
 }
 
 void Polygon::render(){
-	glBindVertexArray(polygonVAO);
+	glBindVertexArray(this->polygonVAO);
 
 	glEnable(GL_POINT_SMOOTH);
 	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
@@ -100,4 +151,21 @@ void Polygon::render(){
 	glDisable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 
 	glBindVertexArray(0);
+}
+
+void Polygon::clear(){
+	if (this->polygonBuffers[0] != 0) {
+		glDeleteBuffers(this->polygonBuffers.size(), &this->polygonBuffers[0]);
+	}
+
+	if (this->polygonVAO != 0) {
+		glDeleteVertexArrays(1, &this->polygonVAO);
+		this->polygonVAO = 0;
+	}
+
+	this->isInit = false;
+}
+
+bool Polygon::isInitialized(){
+	return this->isInit;
 }

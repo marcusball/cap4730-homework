@@ -11,14 +11,18 @@ public:
 	virtual ~Polygon();
 
 	void init(std::vector<Point> * const points);
-	void render();
+	void update(std::vector<Point> * const points);
+	virtual void render();
 
-private:
-	void createCircle(std::vector<Point> * const points);
+	bool isInitialized();
+
+protected:
+	void createVertexBuffers(std::vector<Point> * const points);
+	void updateVertexBuffers(std::vector<Point> * const points);
 	void handlePoint(const Point point, std::vector<unsigned int> & ids, std::vector<Vector4f> & positions, std::vector<Vector4f> & colors, std::vector<float> & pointSizes);
 
 	virtual void pointTransform(std::vector<Point> * const points, std::vector<Point> & newPoints);
-	//void clear();
+	void clear();
 
 #define INDEX_VB 0
 #define ID_BUFFER 1
@@ -31,5 +35,7 @@ private:
 	
 	GLuint polygonVAO;
 	std::array<GLuint, 5> polygonBuffers;
+
+	bool isInit = false;
 };
 
