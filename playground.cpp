@@ -24,16 +24,6 @@
 #include "Polygon.h"
 #include "LinePolygon.h"
 
-
-struct VaoItem{
-	GLuint bufferId;
-	GLuint arrayId;
-	int itemCount;
-	unsigned int drawMode;
-
-	VaoItem(GLuint id, GLuint aid, int count, unsigned int mode) :bufferId(id), arrayId(aid), itemCount(count), drawMode(mode){}
-};
-
 enum PolygonTypes{
 	Points,
 	Lines
@@ -47,12 +37,8 @@ struct PolygonQueueItem{
 
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
-void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId);
-void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints);
-void display();
 void drawPolygon(Polygon & polygon, bool swapToWindow);
 void drawPolygons();
-//void drawHidden();
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
 Point * const getPointById(int searchId);
@@ -62,7 +48,6 @@ void registerListenedKey(int key);
 bool keyHasBeenPressed(int key);
 void dispatchKeyPress(int pressedKey);
 void generateSecondaryPoints();
-void createLineVerticesFromPoints(std::vector<Point> pointVector, std::vector<Point> & lineVector);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -96,7 +81,6 @@ std::vector<Point> * POINTS;
 std::vector<int> LISTENED_KEYS;
 std::vector<int> PRESSED_KEYS; 
 std::queue<PolygonQueueItem> DisplayQueue;
-//std::queue<VaoItem> HiddenDisplayQueue;
 
 Polygon primaryPolygon;
 LinePolygon primaryLinePolygon;
@@ -168,13 +152,6 @@ int main(){
 	float x_0, x_1;
 	float y_0, y_1;
 	do{
-		
-		// update vertex buffer each frame so that shaders can use updated vertex data (HINT: useful when dragging, changing color)
-		//glBindBuffer(GL_ARRAY_BUFFER, pointBuffer);
-		//glBufferSubData(GL_ARRAY_BUFFER, 0, POINT_COUNT * VERTEX_DIMENSIONS * sizeof(GLfloat), pointVerticies);	// update buffer data
-		//pointVerticies = &(*POINTS)[0];
-		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT);
-
 		// PICKING IS DONE HERE
 		if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
 			mouseState |= MOUSE_PRESSED; 
@@ -267,83 +244,20 @@ int main(){
 		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
-		//display(pointBuffer); //Draw the boxes
-		//DisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
 		primaryPolygon.update(POINTS);
 		primaryLinePolygon.update(POINTS);
-
 		DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
 		DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
-		
+
 		generateSecondaryPoints();
 
 		drawPolygons();
 
 		glfwPollEvents();
-
 		handleModeState(); //Check for input and change the mode state appropriately
 	} while (glfwGetKey(WINDOW, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(WINDOW) == 0);
 }
-
-/* 
- * Draw the boxes to the screen!
- */
-/*void display(){
-	static const size_t pointIdOffset = 0;
-	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
-	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
-
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glPointSize(POINT_SIZE);
-	glEnable(GL_POINT_SMOOTH);
-
-	while (!DisplayQueue.empty()){
-		VaoItem vao = DisplayQueue.front();
-
-		glBindVertexArray(vao.arrayId);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vao.bufferId);
-		glVertexAttribPointer(0, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies 
-		glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointColorOffset); //Colors
-
-		switch (vao.drawMode){
-		case(DRAW_MODE_LINES):
-			glDrawArrays(GL_LINES, 0, vao.itemCount * sizeof(Point));
-			break;
-		case(DRAW_MODE_POINTS) :
-		default:
-			glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
-			break;
-		}
-		
-
-		DisplayQueue.pop();
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-
-	}
-
-	glDisable(GL_POINT_SMOOTH);
-	glBlendFunc(GL_NONE, GL_NONE);
-	glDisable(GL_BLEND);
-	
-
-	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
-		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
-	}
-	else{ //If we are debugging, we aren't going to show this on the window
-		glFlush();
-		glFinish();
-	}
-}*/
 
 void drawPolygon(Polygon & polygon, bool swapToWindow){
 	if (swapToWindow){
@@ -408,62 +322,7 @@ void drawPolygons(){
 	}
 }
 
-/*
- * Draw the boxes to the buffer, but don't swap them into the window buffer.
- * Used to keep track of where on the screen the user is clicking.
- */
-/*void drawHidden(){
-	static const size_t pointIdOffset = 0;
-	static const size_t pointVertexOffset = pointIdOffset + sizeof((*POINTS)[0].id);
-	static const size_t pointColorOffset = pointVertexOffset + sizeof((*POINTS)[0].XYZW);
 
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f); //blue screen of death
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_POINT_SMOOTH);
-	glPointSize(POINT_SIZE);
-
-	while (!HiddenDisplayQueue.empty()){
-		VaoItem vao = HiddenDisplayQueue.front();
-
-		glBindVertexArray(vao.arrayId);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vao.bufferId);
-		glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(Point), (GLvoid*)pointIdOffset); //Id 
-		glVertexAttribPointer(1, VERTEX_DIMENSIONS, GL_FLOAT, GL_FALSE, sizeof(Point), (GLvoid*)pointVertexOffset); //Verticies
-
-		glDrawArrays(GL_POINTS, 0, vao.itemCount * sizeof(Point));
-
-		HiddenDisplayQueue.pop();
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-
-	}
-
-	
-
-	//glDrawArrays(GL_POINTS, 0, POINT_COUNT * sizeof(Point));
-
-	glDisable(GL_POINT_SMOOTH);
-	glBlendFunc(GL_NONE, GL_NONE);
-	glDisable(GL_BLEND);
-
-	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging, then this data isn't shown
-		glFlush();
-		glFinish();
-	}
-	else{ //If we are debugging, then draw this instead of the actual display data
-		glfwSwapBuffers(WINDOW);
-	}
-
-	//glfwSwapBuffers(WINDOW);
-}
-*/
 const std::vector<Point> getPoints(int numPoints){
 	srand(time(NULL)); //for rand()
 	std::vector<Point> points(0);
@@ -479,20 +338,6 @@ const std::vector<Point> getPoints(int numPoints){
 	return points;
 }
 
-void makePointVao(const Point * g_vertex_buffer_data, int numPoints, GLuint & bufferId, GLuint & arrayId){
-	/* Supposed to do this first, because they said so. */
-	glGenVertexArrays(1, &arrayId);
-	glBindVertexArray(arrayId);
-
-	glGenBuffers(1, &bufferId);
-	glBindBuffer(GL_ARRAY_BUFFER, bufferId);
-	glBufferData(GL_ARRAY_BUFFER, numPoints * sizeof(Point), g_vertex_buffer_data, GL_DYNAMIC_DRAW);
-}
-
-void updatePointVao(GLuint vertexBuffer, const Point * g_vertex_buffer_data, int numPoints){
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, numPoints * sizeof(Point), g_vertex_buffer_data);
-}
 
 /*
  * Get a random float value between min and max.
@@ -662,9 +507,6 @@ void generateSecondaryPoints(){
 			P_km1 = P_k; //Swap over
 		}
 
-		//std::vector<Point> linePoints(secondaryPointCount * 2);
-		//createLineVerticesFromPoints(*P_k, linePoints);
-
 		if (!secondaryPolygon.isInitialized()){
 			secondaryPolygon.init(P_k);
 
@@ -687,52 +529,6 @@ void generateSecondaryPoints(){
 		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
 		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
 
-		/*Point * pointVerticies = &((*P_k)[0]);
-		Point * linePointVerticies = &(linePoints[0]);
-		if (SecondaryVbo == 0){
-			makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
-			makePointVao(linePointVerticies, secondaryPointCount * 2, SecondaryLineVbo, SecondaryLineVao);
-		}
-		else{
-			if (ModeLevelChanged){
-				glDeleteBuffers(1, &SecondaryVbo);
-				glDeleteVertexArrays(1, &SecondaryVao);
-				makePointVao(pointVerticies, secondaryPointCount, SecondaryVbo, SecondaryVao);
-				makePointVao(linePointVerticies, secondaryPointCount * 2, SecondaryLineVbo, SecondaryLineVao);
-				ModeLevelChanged = false;
-			}
-			else{
-				updatePointVao(SecondaryVbo, pointVerticies, secondaryPointCount);
-				updatePointVao(SecondaryLineVbo, linePointVerticies, secondaryPointCount * 2);
-			}
-		}
-		
-		DisplayQueue.push(VaoItem(SecondaryLineVbo, SecondaryLineVao, secondaryPointCount, DRAW_MODE_LINES)); //Draw lines first
-		DisplayQueue.push(VaoItem(SecondaryVbo, SecondaryVao, secondaryPointCount, DRAW_MODE_POINTS));*/
-
 		delete P_k;
-	}
-}
-
-void createLineVerticesFromPoints(std::vector<Point> pointVector, std::vector<Point> & lineVector){
-	int lsize = lineVector.size();
-	for (int i = 0; i < pointVector.size(); i += 1){
-		int i2 = (i + 1) % pointVector.size(); //wrap around to beginning to complete
-		
-		if (2 * i < lsize){ //If lineVector has already been initialized, and there's room for this item
-			lineVector[2 * i] = pointVector[i];
-		}
-		else{
-			lineVector.push_back(pointVector[i]);
-		}
-		lineVector[2 * i].setRGBA(WHITE);
-
-		if (2 * i + 1 < lsize){ //If lineVector has already been initialized, and there's room for this item
-			lineVector[2 * i + 1] = pointVector[i2];
-		}
-		else{
-			lineVector.push_back(pointVector[i2]);
-		}
-		lineVector[2 * i + 1].setRGBA(WHITE);
 	}
 }
