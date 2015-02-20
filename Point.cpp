@@ -14,6 +14,13 @@ id(_id){
 	RGBA[3] = 1.f;
 }
 
+Point::Point(Vector4f pos) : id(0), XYZW(pos){
+	RGBA[0] = 0.f;
+	RGBA[1] = 0.f;
+	RGBA[2] = 0.f;
+	RGBA[3] = 1.f;
+}
+
 Point::Point(float x, float y, float z, float w) : id(0){
 	XYZW[0] = x;
 	XYZW[1] = y;

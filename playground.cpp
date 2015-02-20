@@ -48,6 +48,8 @@ void registerListenedKey(int key);
 bool keyHasBeenPressed(int key);
 void dispatchKeyPress(int pressedKey);
 void generateSecondaryPoints();
+float getPointDistance(Point a, Point b);
+Vector4f normalizeVector(Vector4f input);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 20;
@@ -247,10 +249,12 @@ int main(){
 
 		primaryPolygon.update(POINTS);
 		primaryLinePolygon.update(POINTS);
+
+		generateSecondaryPoints(); //Placing this before we queue the primary points, so the primary points get drawn on top
+
 		DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
 		DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
 
-		generateSecondaryPoints();
 
 		drawPolygons();
 
@@ -417,32 +421,27 @@ void dispatchKeyPress(int pressedKey){
 				std::cout << "Subdiv level is now " << value << std::endl;
 			}
 			else{
+				secondaryPolygon.clear();
+				secondaryLinePolygon.clear();
+
 				ModeState = MODE_SUBDIV;
 				std::cout << "Setting mode to SUBDIV" << std::endl;
 			}
 			break;
 
 		case(GLFW_KEY_2):
-			if (ModeState & MODE_CATMULL){
-				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
-				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
-				ModeState |= value; //OR in the new value
-			}
-			else{
-				ModeState = MODE_CATMULL;
-				std::cout << "Setting mode to CATMULL" << std::endl;
-			}
+			secondaryPolygon.clear();
+			secondaryLinePolygon.clear();
+
+			ModeState = MODE_CATMULL;
+			std::cout << "Setting mode to CATMULL" << std::endl;
 			break;
 		case(GLFW_KEY_3):
-			if (ModeState & MODE_BEZIER){
-				int value = ((ModeState & 0x0f) + 1) % 14; //We'll allow a max of 16 different subdiv states
-				ModeState &= ~0x0f; //Clear out the last 4 bits, reset to zero. 
-				ModeState |= value; //OR in the new value
-			}
-			else{
-				ModeState = MODE_BEZIER;
-				std::cout << "Setting mode to BEZIER" << std::endl;
-			}
+			secondaryPolygon.clear();
+			secondaryLinePolygon.clear();
+
+			ModeState = MODE_BEZIER;
+			std::cout << "Setting mode to BEZIER" << std::endl;
 			break;
 		case(GLFW_KEY_D) :
 			DEBUG_SELECTION_DRAW = !DEBUG_SELECTION_DRAW;
@@ -531,4 +530,104 @@ void generateSecondaryPoints(){
 
 		delete P_k;
 	}
+	if (ModeState & MODE_CATMULL){
+		int secondaryPointCount = POINT_COUNT * 3;
+		std::vector<Point> & P = *POINTS;
+
+		std::vector<Point> controlPoints(secondaryPointCount - 1); //-1 because the end point = start point
+
+		int plen = P.size();
+		for (int i = 0; i < plen; i += 1){
+			//Compute the values of i+1 and i-1 with wrap around
+			int ip1 = (i + 1) % plen;
+			int im1 = (i != 0) ? (i - 1) : (plen - 1); 
+
+			//Compute the difference of P[i+1] - P[i-1] and normalize it
+			Vector4f tangent((P[ip1] - P[im1]).XYZW);
+			tangent = normalizeVector(tangent);
+
+			//Get the distances between points P[i] and P[i+1], and between P[i] and P[i-1]
+			float distanceForward = getPointDistance(P[i], P[ip1]);
+			float distanceBackward = getPointDistance(P[i], P[im1]);
+
+			//Compute the indices of the new control points in the new point list. 
+			//These are for the control point represeting our current point, P[i], c_i0,
+			//  the next control point, c_i1,
+			//  and the previous control point, c_(i-1)2
+			int currentControlIndex = 3 * i;
+			int forwardControlIndex = (3 * i + 1) % secondaryPointCount;
+			int backwardControlIndex = (i != 0)?(3 * i - 1):(secondaryPointCount - 1 - 1);
+
+			//Have the position vector for P[i] handy
+			Vector4f Pkpos = P[i].XYZW;
+
+			//Position of the next control point, c_i1
+			Vector4f forwardControlPosition = { {
+				Pkpos[0] + ((0.3f * distanceForward) * tangent[0]), //X
+				Pkpos[1] + ((0.3f * distanceForward) * tangent[1]), //Y
+				Pkpos[2] + ((0.3f * distanceForward) * tangent[2]), //Z
+				1.f
+			} };
+
+			//Position of the previous control point, c_(i-1)2
+			Vector4f backwardControlPosition = { {
+				Pkpos[0] + ((-0.3f * distanceBackward) * tangent[0]), //X
+				Pkpos[1] + ((-0.3f * distanceBackward) * tangent[1]), //Y
+				Pkpos[2] + ((-0.3f * distanceBackward) * tangent[2]), //Z
+				1.f
+			} };
+			
+			//controlPoints.emplace(controlPoints.begin() + currentControlIndex, P[i]);  //Place the current control point
+			//controlPoints.emplace(controlPoints.begin() + forwardControlIndex, forwardControlPosition); //place and construct the next control point
+			//controlPoints.emplace(controlPoints.begin() + backwardControlIndex, backwardControlPosition); //place and construct the previous control point
+
+			controlPoints[currentControlIndex] = P[i];
+			controlPoints[forwardControlIndex] = Point(forwardControlPosition);
+			controlPoints[backwardControlIndex] = Point(backwardControlPosition);
+
+			controlPoints[currentControlIndex].pointSize = 3.f;
+			controlPoints[forwardControlIndex].pointSize = 3.f;
+			controlPoints[backwardControlIndex].pointSize = 3.f;
+		}
+
+		if (!secondaryPolygon.isInitialized()){
+			secondaryPolygon.setColor(RED);
+			secondaryPolygon.init(&controlPoints);
+
+			secondaryLinePolygon.setColor(RED);
+			secondaryLinePolygon.init(&controlPoints);
+		}
+		else{
+			secondaryPolygon.update(&controlPoints);
+			secondaryLinePolygon.update(&controlPoints);
+		}
+
+		//drawPolygon(subdivPoly, true);
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+	}
+}
+
+
+float getPointDistance(Point a, Point b){
+	float x_a = a.XYZW[0];
+	float y_a = a.XYZW[1];
+
+	float x_b = b.XYZW[0];
+	float y_b = b.XYZW[1];
+
+	return std::sqrt(std::pow(x_b - x_a, 2.f) + std::pow(y_b - y_a, 2.f));
+}
+
+Vector4f normalizeVector(Vector4f input){
+	Vector4f returnVector(input);
+	float magnitude = std::sqrt(std::pow(input[0], 2) + std::pow(input[1], 2) + std::pow(input[2], 2));
+
+	if (magnitude > 0.000001){
+		returnVector[0] /= magnitude;
+		returnVector[1] /= magnitude;
+		returnVector[2] /= magnitude;
+		returnVector[3] /= magnitude;
+	}
+	return returnVector;
 }

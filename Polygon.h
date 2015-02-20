@@ -13,6 +13,9 @@ public:
 	void init(std::vector<Point> * const points);
 	void update(std::vector<Point> * const points);
 	virtual void render();
+	void clear();
+
+	void setColor(Vector4f color);
 
 	bool isInitialized();
 
@@ -22,7 +25,7 @@ protected:
 	void handlePoint(const Point point, std::vector<unsigned int> & ids, std::vector<Vector4f> & positions, std::vector<Vector4f> & colors, std::vector<float> & pointSizes);
 
 	virtual void pointTransform(std::vector<Point> * const points, std::vector<Point> & newPoints);
-	void clear();
+	
 
 #define INDEX_VB 0
 #define ID_BUFFER 1
@@ -37,5 +40,10 @@ protected:
 	std::array<GLuint, 5> polygonBuffers;
 
 	bool isInit = false;
+
+	Vector4f pointColor;
+
+private:
+	bool colorOverride = false;
 };
 

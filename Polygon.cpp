@@ -127,7 +127,12 @@ void Polygon::updateVertexBuffers(std::vector<Point> * const points){
 void Polygon::handlePoint(const Point point, std::vector<unsigned int> & ids, std::vector<Vector4f> & positions, std::vector<Vector4f> & colors, std::vector<float> & pointSizes){
 	ids.push_back(point.id);
 	positions.push_back(point.XYZW);
-	colors.push_back(point.RGBA);
+	if (!this->colorOverride){
+		colors.push_back(point.RGBA);
+	}
+	else{
+		colors.push_back(this->pointColor);
+	}
 	pointSizes.push_back(point.pointSize);
 }
 
@@ -168,4 +173,9 @@ void Polygon::clear(){
 
 bool Polygon::isInitialized(){
 	return this->isInit;
+}
+
+void Polygon::setColor(Vector4f color){
+	this->pointColor = color;
+	this->colorOverride = true;
 }

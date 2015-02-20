@@ -5,6 +5,7 @@ class Point
 {
 public:
 	Point(unsigned int _id = 0);
+	Point(Vector4f pos);
 	Point(float x, float y, float z, float w = 1);
 	~Point();
 
