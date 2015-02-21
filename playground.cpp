@@ -53,9 +53,8 @@ Vector4f normalizeVector(Vector4f input);
 Point deCasteljau(const std::vector<Point> * P, float t);
 
 /** CONSTANTS **/
-const unsigned int POINT_COUNT = 20;
-const float POINT_SIZE = 8.0f;
-const unsigned int VERTEX_DIMENSIONS = 4; // 3D space
+const unsigned int POINT_COUNT = 8; // <<================================= POINT COUNT 
+
 const unsigned int RESOLUTION_WIDTH = 1024;
 const unsigned int RESOLUTION_HEIGHT = 768;
 
@@ -442,7 +441,7 @@ void dispatchKeyPress(int pressedKey){
 				tertiaryLinePolygon.clear();
 
 				ModeState = MODE_SUBDIV;
-				std::cout << "Setting mode to SUBDIV" << std::endl;
+				//std::cout << "Setting mode to SUBDIV" << std::endl;
 			}
 			break;
 
@@ -451,8 +450,16 @@ void dispatchKeyPress(int pressedKey){
 			secondaryLinePolygon.clear();
 			tertiaryLinePolygon.clear();
 
-			ModeState = MODE_CATMULL;
-			std::cout << "Setting mode to CATMULL" << std::endl;
+			if (ModeState & MODE_CATMULL){
+				int value = ((ModeState & 0x01) + 1) % 2; //We'll allow a max of 2 different subdiv states
+				ModeState &= ~0x01; //Clear out the last 4 bits, reset to zero.
+				ModeState |= value; //OR in the new value
+				ModeLevelChanged = true;
+				
+			}
+			else{
+				ModeState = MODE_CATMULL;
+			}
 			break;
 		case(GLFW_KEY_3):
 			secondaryPolygon.clear();
@@ -460,7 +467,7 @@ void dispatchKeyPress(int pressedKey){
 			tertiaryLinePolygon.clear();
 
 			ModeState = MODE_BEZIER;
-			std::cout << "Setting mode to BEZIER" << std::endl;
+			//std::cout << "Setting mode to BEZIER" << std::endl;
 			break;
 		case(GLFW_KEY_D) :
 			DEBUG_SELECTION_DRAW = !DEBUG_SELECTION_DRAW;
@@ -513,11 +520,8 @@ void generateSecondaryPoints(){
 		}
 
 		float pointSize = 5.f;
-		if (subdivLevel >= 5){
-			pointSize = 3.f;
-		}
-		if (subdivLevel >= 7){
-			pointSize = 1.f;
+		if (subdivLevel >= 4){
+			pointSize = std::max(5.f - (subdivLevel - 3),1.f);
 		}
 
 		long secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
@@ -574,6 +578,8 @@ void generateSecondaryPoints(){
 		delete P_k;
 	}
 	if (ModeState & MODE_CATMULL){
+		unsigned int drawMode = ModeState & 0x01;
+
 		int secondaryPointCount = POINT_COUNT * 3;
 		std::vector<Point> & P = *POINTS;
 
@@ -650,16 +656,29 @@ void generateSecondaryPoints(){
 			secondaryPolygon.setColor(RED);
 			secondaryPolygon.init(&controlPoints);
 
-			secondaryLinePolygon.setColor(RED);
-			secondaryLinePolygon.init(&controlPoints);
+			secondaryLinePolygon.setColor(GREEN);
+			secondaryLinePolygon.init(&vertices);
 
-			tertiaryLinePolygon.setColor(GREEN);
-			tertiaryLinePolygon.init(&vertices);
+			
 		}
 		else{
 			secondaryPolygon.update(&controlPoints);
-			secondaryLinePolygon.update(&controlPoints);
-			tertiaryLinePolygon.update(&vertices);
+			secondaryLinePolygon.update(&vertices);
+			
+		}
+
+		//I added in a second draw mode to hide the control lines
+		if (drawMode == 1){
+			tertiaryLinePolygon.clear();
+		}
+		else{
+			if (!tertiaryLinePolygon.isInitialized()){
+				tertiaryLinePolygon.setColor(RED);
+				tertiaryLinePolygon.init(&controlPoints);
+			}
+			else{
+				tertiaryLinePolygon.update(&controlPoints);
+			}
 		}
 	}
 	if (ModeState & MODE_BEZIER){
