@@ -89,6 +89,7 @@ Polygon primaryPolygon;
 LinePolygon primaryLinePolygon;
 Polygon secondaryPolygon;
 LinePolygon secondaryLinePolygon;
+LinePolygon tertiaryLinePolygon;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
@@ -260,6 +261,7 @@ int main(){
 		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
+		DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
 
 		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
 		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
@@ -437,6 +439,7 @@ void dispatchKeyPress(int pressedKey){
 			else{
 				secondaryPolygon.clear();
 				secondaryLinePolygon.clear();
+				tertiaryLinePolygon.clear();
 
 				ModeState = MODE_SUBDIV;
 				std::cout << "Setting mode to SUBDIV" << std::endl;
@@ -446,23 +449,15 @@ void dispatchKeyPress(int pressedKey){
 		case(GLFW_KEY_2):
 			secondaryPolygon.clear();
 			secondaryLinePolygon.clear();
+			tertiaryLinePolygon.clear();
 
-			if(ModeState & MODE_CATMULL){
-				int value = ((ModeState & 0x01) + 1) % 2; //We'll allow a max of 2 different subdiv states
-				ModeState &= ~0x01; //Clear out the last 4 bits, reset to zero. 
-				ModeState |= value; //OR in the new value
-				ModeLevelChanged = true;
-
-				std::cout << "Catmull mode is now " << value << std::endl;
-			}
-			else{
-				ModeState = MODE_CATMULL;
-				std::cout << "Setting mode to CATMULL" << std::endl;
-			}
+			ModeState = MODE_CATMULL;
+			std::cout << "Setting mode to CATMULL" << std::endl;
 			break;
 		case(GLFW_KEY_3):
 			secondaryPolygon.clear();
 			secondaryLinePolygon.clear();
+			tertiaryLinePolygon.clear();
 
 			ModeState = MODE_BEZIER;
 			std::cout << "Setting mode to BEZIER" << std::endl;
@@ -511,7 +506,19 @@ bool handleModeState(){
 void generateSecondaryPoints(){
 	if (ModeState & MODE_SUBDIV){ //We're doing subdivision now
 		unsigned int subdivLevel = ModeState & 0x0f;
-		subdivLevel += 1;
+		if (subdivLevel == 0){
+			secondaryPolygon.clear();
+			secondaryLinePolygon.clear();
+			return;
+		}
+
+		float pointSize = 5.f;
+		if (subdivLevel >= 5){
+			pointSize = 3.f;
+		}
+		if (subdivLevel >= 7){
+			pointSize = 1.f;
+		}
 
 		long secondaryPointCount = POINT_COUNT * std::pow(2, subdivLevel);
 		int pointSetCount = subdivLevel + 1;
@@ -528,11 +535,11 @@ void generateSecondaryPoints(){
 
 				(*P_k)[2 * i] = ((*P_km1)[im1] * 4.0f + (*P_km1)[i] * 4.f) / 8.0f;
 				(*P_k)[2 * i].setRGBA(CYAN);
-				(*P_k)[2 * i].pointSize = 5.f;
+				(*P_k)[2 * i].pointSize = pointSize;
 
 				(*P_k)[2 * i + 1] = ((*P_km1)[im1] + ((*P_km1)[i] * 6) + (*P_km1)[ip1]) / 8.0f;
 				(*P_k)[2 * i + 1].setRGBA(CYAN);
-				(*P_k)[2 * i + 1].pointSize = 5.f;
+				(*P_k)[2 * i + 1].pointSize = pointSize;
 			}
 
 			if (k - 1 != 0){ //If k-1 = 0, then P_km1 is POINTS, which we don't want to delete
@@ -567,12 +574,10 @@ void generateSecondaryPoints(){
 		delete P_k;
 	}
 	if (ModeState & MODE_CATMULL){
-		unsigned int drawMode = ModeState & 0x01;
-
 		int secondaryPointCount = POINT_COUNT * 3;
 		std::vector<Point> & P = *POINTS;
 
-		std::vector<Point> controlPoints(secondaryPointCount); //-1 because the end point = start point
+		std::vector<Point> controlPoints(secondaryPointCount); 
 
 		int plen = P.size();
 		for (int i = 0; i < plen; i += 1){
@@ -624,52 +629,87 @@ void generateSecondaryPoints(){
 			controlPoints[backwardControlIndex].pointSize = 3.f;
 		}
 
-		if (drawMode == 0){ 
-			int pointsPerSegment = 15;
-			std::vector<Point> vertices; 
-			vertices.reserve(POINT_COUNT * pointsPerSegment);
+		//This is the part where we evaluate the control points to get the curve vertices
+		int pointsPerSegment = 15;
+		std::vector<Point> vertices; 
+		vertices.reserve(POINT_COUNT * pointsPerSegment);
 			
-			for (int i = 0; i < POINT_COUNT; i += 1){
-				std::vector<Point> segment(4);
-				for (int j = 0; j < 4; j += 1){
-					segment[j] = controlPoints[(i * 3 + j) % (secondaryPointCount)]; 
-				}
-
-				for (int k = 0; k < pointsPerSegment; k += 1){
-					float u = (float)k / (float)(pointsPerSegment + 1); //I don't want this to ever hit 1, since it'll overlap with the next segment
-					vertices.push_back(deCasteljau(&segment, u));
-				}
+		for (int i = 0; i < POINT_COUNT; i += 1){
+			std::vector<Point> segment(4);
+			for (int j = 0; j < 4; j += 1){
+				segment[j] = controlPoints[(i * 3 + j) % (secondaryPointCount)]; 
 			}
 
-			if (!secondaryPolygon.isInitialized()){
-				secondaryPolygon.setColor(RED);
-				secondaryPolygon.init(&controlPoints);
-
-				secondaryLinePolygon.setColor(RED);
-				secondaryLinePolygon.init(&vertices);
-			}
-			else{
-				secondaryPolygon.update(&controlPoints);
-				secondaryLinePolygon.update(&vertices);
-			}
-		}
-		else if(drawMode == 1){//Drawing just the control points
-			if (!secondaryPolygon.isInitialized()){
-				secondaryPolygon.setColor(RED);
-				secondaryPolygon.init(&controlPoints);
-
-				secondaryLinePolygon.setColor(RED);
-				secondaryLinePolygon.init(&controlPoints);
-			}
-			else{
-				secondaryPolygon.update(&controlPoints);
-				secondaryLinePolygon.update(&controlPoints);
+			for (int k = 0; k < pointsPerSegment; k += 1){
+				float u = (float)k / (float)(pointsPerSegment + 1); //I don't want this to ever hit 1, since it'll overlap with the next segment
+				vertices.push_back(deCasteljau(&segment, u));
 			}
 		}
 
-		//drawPolygon(subdivPoly, true);
-		//DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-		//DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+		if (!secondaryPolygon.isInitialized()){
+			secondaryPolygon.setColor(RED);
+			secondaryPolygon.init(&controlPoints);
+
+			secondaryLinePolygon.setColor(RED);
+			secondaryLinePolygon.init(&controlPoints);
+
+			tertiaryLinePolygon.setColor(GREEN);
+			tertiaryLinePolygon.init(&vertices);
+		}
+		else{
+			secondaryPolygon.update(&controlPoints);
+			secondaryLinePolygon.update(&controlPoints);
+			tertiaryLinePolygon.update(&vertices);
+		}
+	}
+	if (ModeState & MODE_BEZIER){
+		std::vector<Point> & P = *POINTS;
+
+		std::vector<std::array<Point, 4>> coefficients(P.size());
+
+		//Calculate all of the coefficients
+		for (int i = 0; i < P.size(); i += 1){
+			int ip1 = (i + 1) % P.size();
+			int ip2 = (i + 2) % P.size();
+			coefficients[i][1] = (P[i] * 2.f + P[ip1]) / 3.f;
+			coefficients[i][2] = (P[i] * 1.f + P[ip1] * 2.f) / 3.f;
+			coefficients[i][3] = (((P[ip1] * 2.f + P[ip2]) / 3.f) + coefficients[i][2]) / 2.f;
+			coefficients[ip1][0] = coefficients[i][3];
+		}
+
+		//Copy the coefficients as control points
+		std::vector<Point> controlPoints(P.size() * 3);
+		for (int i = 0; i < P.size(); i += 1){
+			for (int j = 0; j < 3; j += 1){
+				controlPoints[i * 3 + j] = coefficients[i][j];
+				controlPoints[i * 3 + j].pointSize = 4.f;
+			}
+		}
+
+		//Evaluate the control points using deCasteljau's algorithm
+		int pointsPerSegment = 15;
+		std::vector<Point> vertices;
+		vertices.reserve(POINT_COUNT * pointsPerSegment);
+
+		for (int i = 0; i < POINT_COUNT; i += 1){
+			for (int k = 0; k < pointsPerSegment; k += 1){
+				float u = (float)k / (float)(pointsPerSegment + 1); //I don't want this to ever hit 1, since it'll overlap with the next segment
+				std::vector<Point> segment(coefficients[i].begin(), coefficients[i].end());
+				vertices.push_back(deCasteljau(&segment, u));
+			}
+		}
+
+		if (!secondaryPolygon.isInitialized()){
+			secondaryPolygon.setColor(YELLOW);
+			secondaryPolygon.init(&controlPoints);
+
+			secondaryLinePolygon.setColor(YELLOW);
+			secondaryLinePolygon.init(&vertices);
+		}
+		else{
+			secondaryPolygon.update(&controlPoints);
+			secondaryLinePolygon.update(&vertices);
+		}
 	}
 }
 
