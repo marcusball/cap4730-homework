@@ -84,6 +84,14 @@ std::vector<int> LISTENED_KEYS;
 std::vector<int> PRESSED_KEYS; 
 std::queue<PolygonQueueItem> DisplayQueue;
 
+glm::mat4 projectionMatrix;
+glm::mat4 viewMatrix;
+
+GLuint matrixID;
+GLuint viewMatrixID;
+GLuint modelMatrixID;
+GLuint lightID;
+
 Polygon primaryPolygon;
 LinePolygon primaryLinePolygon;
 Polygon secondaryPolygon;
@@ -165,12 +173,17 @@ int main(){
 			requiresRefresh = false;
 		}
 
+		glm::mat4 modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
+		glm::mat4 MVP = projectionMatrix * viewMatrix * modelMatrix;
+
 		// PICKING IS DONE HERE
 		if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
 			mouseState |= MOUSE_PRESSED; 
 
 			glUseProgram(pickingProgramID);
 			{
+				
+
 				//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
 				drawPolygon(primaryPolygon, false);
@@ -260,18 +273,26 @@ int main(){
 		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
 
 		glUseProgram(programID); //Use the normal shaders
-		DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
+		{
+			glUniformMatrix4fv(matrixID, 1, GL_FALSE, &MVP[0][0]);
+			glUniformMatrix4fv(modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
+			glUniformMatrix4fv(viewMatrixID, 1, GL_FALSE, &viewMatrix[0][0]);
+			glm::vec3 lightPos = glm::vec3(4, 4, 4);
+			glUniform3f(lightID, lightPos.x, lightPos.y, lightPos.z);
 
-		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+			DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
 
-		if (!HideSelectionPoints){
-			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
-			DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+			DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+			DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+
+			if (!HideSelectionPoints){
+				DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
+				DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+			}
+
+
+			drawPolygons();
 		}
-
-
-		drawPolygons();
 
 		glfwPollEvents();
 		requiresRefresh |= handleModeState(); //Check for input and change the mode state appropriately
