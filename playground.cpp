@@ -51,6 +51,7 @@ void generateSecondaryPoints();
 float getPointDistance(Point a, Point b);
 Vector4f normalizeVector(Vector4f input);
 Point deCasteljau(const std::vector<Point> * P, float t);
+bool ShiftKeyHeld();
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 8; // <<================================= POINT COUNT 
@@ -62,6 +63,12 @@ const float COORD_X_MIN = -4.f;
 const float COORD_X_MAX = 4.f;
 const float COORD_Y_MIN = -3.f;
 const float COORD_Y_MAX = 3.f;
+
+const float CAMERA_EYE_X = 0.f;
+const float CAMERA_EYE_Y = 0.f;
+const float CAMERA_EYE_Z = -5.f;
+
+const float Z_MOVE_Y_MOD = 2.f; //Multiplier to apply to shift in mouse Y coordinate when [shift]ing a point in Z space.
 
 const unsigned int MOUSE_PRESSED = 1;
 const unsigned int MOUSE_HELD = 2;
@@ -81,6 +88,8 @@ const Vector4f CYAN = { 0.f, 1.f, 1.f, 1.f };
 const Vector4f BLUE = { 0.f, 0.f, 1.f, 1.f };
 const Vector4f PURPLE = { 1.f, 0.f, 1.f, 1.f };
 const Vector4f WHITE = { 1.f, 1.f, 1.f, 1.f };
+
+const int SHIFT_KEY_RELEASE_THRESHOLD = 10; //Arbitrary number of frames in which the shift key must be "released" in order to consider it no longer held down
 
 /** GLOBAL VARIABLES **/
 GLFWwindow * WINDOW;
@@ -109,7 +118,8 @@ unsigned int ModeState = 0;
 bool ModeLevelChanged = false;
 bool DEBUG_SELECTION_DRAW = false;
 bool HideSelectionPoints = false;
-
+int shiftKeyReleaseTime = 0;
+bool shiftKeyWasPressed = false;
 
 int main(){
 	//Initialize GLFW
@@ -147,14 +157,11 @@ int main(){
 	// Cull triangles which normal is not towards the camera
 	glEnable(GL_CULL_FACE);
 
-	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-	//glm::mat4 ProjectionMatrix = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-	// Or, for an ortho camera :
 	projectionMatrix = glm::ortho(COORD_X_MIN, COORD_X_MAX, COORD_Y_MIN, COORD_Y_MAX, 0.0f, 100.0f); // In world coordinates
 
 	// Camera matrix
 	viewMatrix = glm::lookAt(
-		glm::vec3(0, 0, -5), // Camera is at (4,3,3), in World Space
+		glm::vec3(CAMERA_EYE_X, CAMERA_EYE_Y, CAMERA_EYE_Z), // Camera is at (4,3,3), in World Space
 		glm::vec3(0, 0, 0), // and looks at the origin
 		glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
 		);
@@ -198,6 +205,7 @@ int main(){
 	float m_y = -(COORD_Y_MAX - COORD_Y_MIN) / RESOLUTION_HEIGHT;
 	float x_0, x_1;
 	float y_0, y_1;
+	float y_orig, z_orig, z_delta;
 	do{
 		if (requiresRefresh){
 			primaryPolygon.update(POINTS);
@@ -242,9 +250,10 @@ int main(){
 				int pickedID = int(data[0]);
 
 				
-				if (pickedID != 255){ //Not the background
-					if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
-						if (selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
+				
+				if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
+					if (selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
+						if (!ShiftKeyHeld()){
 							float x_n = m_x * (xpos - x_0) + x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
 							float y_n = m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
 
@@ -254,8 +263,18 @@ int main(){
 
 							//std::cout << "updating " << selectedPoint->id << " to (" << x_n << ", " << y_n << ") " << std::endl;
 						}
+						else{
+							float y_n = Z_MOVE_Y_MOD * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+
+							z_delta = y_n - y_orig;
+
+							selectedPoint->XYZW[2] = std::max(z_orig + z_delta, CAMERA_EYE_Z);
+							std::cout << y_n << " changes the points z value to " << selectedPoint->XYZW[2] << std::endl;
+						}
 					}
-					else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
+				}
+				else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
+					if (pickedID != 255){ //Not the background
 						selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
 						if (selectedPoint != NULL){ //Make sure something didn't go wrong
 							selectedPoint->setRGBA(RED);
@@ -268,6 +287,10 @@ int main(){
 
 							y_0 = ypos;
 							y_1 = selectedPoint->XYZW[1];
+
+							y_orig = m_y * (ypos - y_0) + y_1;
+							z_orig = selectedPoint->XYZW[2];
+							z_delta = 0.f;
 						}
 						else{
 							//std::cout << "ERROR: Unable to locate selected Point (" << pickedID << ")!" << std::endl;
@@ -276,22 +299,8 @@ int main(){
 						//Update the mouse state
 						mouseState = MOUSE_HELD;
 					}
-					requiresRefresh = true;
 				}
-				else{
-					//This is for the case where you move your mouse so fast that the cursor actually stops pointing at the box,
-					//but you were still holding the mouse button. This enables the box to catch up to the cursor.
-					if (mouseState & MOUSE_HELD){ 
-						if (selectedPoint != NULL){
-							float x_n = m_x * (xpos - x_0) + x_1;
-							float y_n = m_y * (ypos - y_0) + y_1;
-
-							selectedPoint->XYZW[0] = x_n;
-							selectedPoint->XYZW[1] = y_n;
-						}
-					}
-					requiresRefresh = true;
-				}
+				requiresRefresh = true;
 			}
 		}
 		else{ //The mouse is not being clicked
@@ -825,4 +834,29 @@ Point deCasteljau(const std::vector<Point> * P, float t){
 		}
 	}
 	return Q[0];
+}
+
+bool ShiftKeyHeld(){
+	if (glfwGetKey(WINDOW, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS || glfwGetKey(WINDOW, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS){
+		shiftKeyWasPressed = true;
+		shiftKeyReleaseTime = 0;
+		return true;
+	}
+	else{
+		if (shiftKeyWasPressed){
+			if (shiftKeyReleaseTime < SHIFT_KEY_RELEASE_THRESHOLD){
+				shiftKeyReleaseTime += 1;
+				return true;
+			}
+			else{
+				std::cout << "releasing shift key";
+				shiftKeyReleaseTime = 0;
+				shiftKeyWasPressed = false;
+				return false;
+			}
+		}
+		else{
+			return false;
+		}
+	}
 }
