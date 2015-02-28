@@ -58,6 +58,11 @@ const unsigned int POINT_COUNT = 8; // <<================================= POINT
 const unsigned int RESOLUTION_WIDTH = 1024;
 const unsigned int RESOLUTION_HEIGHT = 768;
 
+const float COORD_X_MIN = -4.f;
+const float COORD_X_MAX = 4.f;
+const float COORD_Y_MIN = -3.f;
+const float COORD_Y_MAX = 3.f;
+
 const unsigned int MOUSE_PRESSED = 1;
 const unsigned int MOUSE_HELD = 2;
 const unsigned int MOUSE_HAS_CLICKED = MOUSE_PRESSED | MOUSE_HELD;
@@ -88,6 +93,7 @@ glm::mat4 projectionMatrix;
 glm::mat4 viewMatrix;
 
 GLuint matrixID;
+GLuint pickingMatrixID;
 GLuint viewMatrixID;
 GLuint modelMatrixID;
 GLuint lightID;
@@ -134,6 +140,25 @@ int main(){
 		return 1;
 	}
 
+	// Enable depth test
+	glEnable(GL_DEPTH_TEST);
+	// Accept fragment if it closer to the camera than the former one
+	glDepthFunc(GL_LESS);
+	// Cull triangles which normal is not towards the camera
+	glEnable(GL_CULL_FACE);
+
+	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+	//glm::mat4 ProjectionMatrix = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
+	// Or, for an ortho camera :
+	projectionMatrix = glm::ortho(COORD_X_MIN, COORD_X_MAX, COORD_Y_MIN, COORD_Y_MAX, 0.0f, 100.0f); // In world coordinates
+
+	// Camera matrix
+	viewMatrix = glm::lookAt(
+		glm::vec3(0, 0, -5), // Camera is at (4,3,3), in World Space
+		glm::vec3(0, 0, 0), // and looks at the origin
+		glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
+		);
+
 	registerListenedKey(GLFW_KEY_1);
 	registerListenedKey(GLFW_KEY_2);
 	registerListenedKey(GLFW_KEY_3);
@@ -154,14 +179,23 @@ int main(){
 	GLuint programID = LoadShaders("vertex.shader", "frag.shader");
 	GLuint pickingProgramID = LoadShaders("picking.vertex.shader", "picking.frag.shader");
 
+	// Get a handle for our "MVP" uniform
+	matrixID = glGetUniformLocation(programID, "MVP");
+	viewMatrixID = glGetUniformLocation(programID, "V");
+	modelMatrixID = glGetUniformLocation(programID, "M");
+	pickingMatrixID = glGetUniformLocation(pickingProgramID, "MVP");
+
+	// Get a handle for our "LightPosition" uniform
+	lightID = glGetUniformLocation(programID, "LightPosition_worldspace");
+
 	glfwSetInputMode(WINDOW, GLFW_STICKY_KEYS, GL_TRUE);
 	
 
 	Point * selectedPoint = NULL; //Pointer to the selected Point object; populated when user clicks on a point. 
 	bool requiresRefresh = true;
 	//Just some variables that will be used to calculate the conversion between screen coordinates and vertex coordinates.
-	float m_x = 2.0f / RESOLUTION_WIDTH;
-	float m_y = -2.0f / RESOLUTION_HEIGHT;
+	float m_x = -(COORD_X_MAX - COORD_X_MIN) / RESOLUTION_WIDTH;
+	float m_y = -(COORD_Y_MAX - COORD_Y_MIN) / RESOLUTION_HEIGHT;
 	float x_0, x_1;
 	float y_0, y_1;
 	do{
@@ -182,7 +216,12 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				
+				glm::mat4 ModelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
+				glm::mat4 MVP = projectionMatrix * viewMatrix * ModelMatrix;
+
+				// Send our transformation to the currently bound shader, in the "MVP" uniform
+				glUniformMatrix4fv(pickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
+
 
 				//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
 
@@ -417,15 +456,11 @@ Point * const getPointById(int searchId){
  * Note, i should be zero indexed, such that i = [0,n). 
  */
 void placePointOnCircle(int i, int n, Point & p){
-	float scaleFactorX = (float)RESOLUTION_HEIGHT / (float)RESOLUTION_WIDTH; //factor for wide windows 
-	if (RESOLUTION_HEIGHT > RESOLUTION_WIDTH){ scaleFactorX = 1.0 / scaleFactorX; } //in case the window is taller than it is wide
-	//This factor is to scale the points, since the bounds of this window are -1 and 1 on box axis', regardless of the window dimensions
-
-	float radius = 0.75f;
+	float radius = 2.f;
 
 	float rad = ((float)i / (float)n) * 2.0 * M_PI; //Out of a full circle, where should this point be
 
-	p.XYZW[0] = std::cos(rad) * radius * scaleFactorX;
+	p.XYZW[0] = std::cos(rad) * radius;
 	p.XYZW[1] = std::sin(rad) * radius;
 	p.XYZW[2] = 0.f;
 	p.XYZW[3] = 1.f;
