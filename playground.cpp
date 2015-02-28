@@ -93,6 +93,10 @@ const unsigned int MODE_SUBDIV = 64;
 const unsigned int MODE_CATMULL = 128;
 const unsigned int MODE_BEZIER = 256;
 
+const unsigned int VIEW_MODE_SINGLE = 1;
+const unsigned int VIEW_MODE_DOUBLE = 2;
+
+
 const unsigned int DRAW_MODE_POINTS = 0;
 const unsigned int DRAW_MODE_LINES = 1;
 
@@ -135,6 +139,7 @@ LinePolygon tertiaryLinePolygon;
 
 unsigned int mouseState = 0; //The current mouse click state; 0 -> no click
 unsigned int ModeState = 0;
+unsigned int ViewModeState = VIEW_MODE_SINGLE;
 bool ModeLevelChanged = false;
 bool DEBUG_SELECTION_DRAW = false;
 bool HideSelectionPoints = false;
@@ -191,6 +196,7 @@ int main(){
 	registerListenedKey(GLFW_KEY_1);
 	registerListenedKey(GLFW_KEY_2);
 	registerListenedKey(GLFW_KEY_3);
+	registerListenedKey(GLFW_KEY_4);
 	registerListenedKey(GLFW_KEY_H);
 	registerListenedKey(GLFW_KEY_D);
 
@@ -241,8 +247,15 @@ int main(){
 			requiresRefresh = false;
 		}
 
-		int viewCount = 2;
-		int mode = 2;
+		int viewCount = 1;
+		switch (ViewModeState){
+		case VIEW_MODE_SINGLE:
+			viewCount = 1;
+			break;
+		case VIEW_MODE_DOUBLE:
+			viewCount = 2;
+			break;
+		}
 
 		//loop through the draw states of (1) drawing selection points and (2) drawing the actual screen
 		for (int drawState = 1; drawState <= 2; drawState += 1){
@@ -266,12 +279,12 @@ int main(){
 				view_y_axis = Y_AXIS;
 				view_z_axis = Z_AXIS;
 
-				if (mode == 1){
+				if (ViewModeState == VIEW_MODE_SINGLE){
 					scaleFactor = 1;
 					modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
 					MVP = projectionMatrix * viewMatrix * modelMatrix;
 				}
-				if (mode == 2){
+				if (ViewModeState == VIEW_MODE_DOUBLE){
 					scaleFactor = 0.5;
 
 					switch (view){
@@ -475,6 +488,16 @@ void dispatchKeyPress(int pressedKey){
 			ModeState = MODE_BEZIER;
 			//std::cout << "Setting mode to BEZIER" << std::endl;
 			break;
+		case(GLFW_KEY_4):
+			switch (ViewModeState){
+			case VIEW_MODE_SINGLE:
+				ViewModeState = VIEW_MODE_DOUBLE;
+				break;
+			case VIEW_MODE_DOUBLE:
+				ViewModeState = VIEW_MODE_SINGLE;
+				break;
+			break;
+		}
 		case(GLFW_KEY_D) :
 			DEBUG_SELECTION_DRAW = !DEBUG_SELECTION_DRAW;
 			break;
