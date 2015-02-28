@@ -16,6 +16,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
@@ -121,6 +122,8 @@ bool HideSelectionPoints = false;
 int shiftKeyReleaseTime = 0;
 bool shiftKeyWasPressed = false;
 
+float scaleFactor = 1.f;
+
 int main(){
 	//Initialize GLFW
 	if (!glfwInit()){
@@ -206,6 +209,8 @@ int main(){
 	float x_0, x_1;
 	float y_0, y_1;
 	float y_orig, z_orig, z_delta;
+
+	scaleFactor = 0.5f;
 	do{
 		if (requiresRefresh){
 			primaryPolygon.update(POINTS);
@@ -215,7 +220,9 @@ int main(){
 			requiresRefresh = false;
 		}
 
-		glm::mat4 modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
+		glm::mat4 scaleMatrix = glm::scale(scaleFactor, scaleFactor, scaleFactor);
+		glm::mat4 translationMatrix = glm::translate(0.0f, 3.5f, 0.0f);
+		glm::mat4 modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
 		glm::mat4 MVP = projectionMatrix * viewMatrix * modelMatrix;
 
 		// PICKING IS DONE HERE
@@ -224,9 +231,6 @@ int main(){
 
 			glUseProgram(pickingProgramID);
 			{
-				glm::mat4 ModelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
-				glm::mat4 MVP = projectionMatrix * viewMatrix * ModelMatrix;
-
 				// Send our transformation to the currently bound shader, in the "MVP" uniform
 				glUniformMatrix4fv(pickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
 
@@ -254,23 +258,27 @@ int main(){
 				if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
 					if (selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
 						if (!ShiftKeyHeld()){
-							float x_n = m_x * (xpos - x_0) + x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
-							float y_n = m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+							float x_n = (1.f / scaleFactor) * m_x * (xpos - x_0) + x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
+							float y_n = (1.f / scaleFactor) * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
 
 							//Update the position
 							selectedPoint->XYZW[0] = x_n;
 							selectedPoint->XYZW[1] = y_n;
 
-							//std::cout << "updating " << selectedPoint->id << " to (" << x_n << ", " << y_n << ") " << std::endl;
+							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+							y_orig = selectedPoint->XYZW[1];
+							z_orig = selectedPoint->XYZW[2];
+							z_delta = 0.f;
 						}
 						else{
-							float y_n = Z_MOVE_Y_MOD * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+							float y_n = (1.f / scaleFactor) * Z_MOVE_Y_MOD * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
 
 							z_delta = y_n - y_orig;
 
 							selectedPoint->XYZW[2] = std::max(z_orig + z_delta, CAMERA_EYE_Z);
-							std::cout << y_n << " changes the points z value to " << selectedPoint->XYZW[2] << std::endl;
 						}
+
+						std::printf("Position of point %d is now <%.1f, %.1f, %.1f>\n", selectedPoint->id, selectedPoint->XYZW[0], selectedPoint->XYZW[1], selectedPoint->XYZW[2]);
 					}
 				}
 				else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
@@ -288,16 +296,21 @@ int main(){
 							y_0 = ypos;
 							y_1 = selectedPoint->XYZW[1];
 
-							y_orig = m_y * (ypos - y_0) + y_1;
+							y_orig = selectedPoint->XYZW[1];
 							z_orig = selectedPoint->XYZW[2];
 							z_delta = 0.f;
-						}
-						else{
-							//std::cout << "ERROR: Unable to locate selected Point (" << pickedID << ")!" << std::endl;
 						}
 
 						//Update the mouse state
 						mouseState = MOUSE_HELD;
+					}
+					else{
+						if (selectedPoint != NULL){
+							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+							y_orig = selectedPoint->XYZW[1];
+							z_orig = selectedPoint->XYZW[2];
+							z_delta = 0.f;
+						}
 					}
 				}
 				requiresRefresh = true;
@@ -338,8 +351,10 @@ int main(){
 				DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
 			}
 
-
 			drawPolygons();
+
+			glm::mat4 translationMatrix = glm::translate(0.0f, -3.5f, 0.0f);
+			glm::mat4 modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
 		}
 
 		glfwPollEvents();
