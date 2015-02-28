@@ -36,9 +36,19 @@ struct PolygonQueueItem{
 	PolygonTypes type;
 };
 
+struct PickingVariables{
+	float m_x;
+	float m_y;
+	float x_0, x_1;
+	float y_0, y_1;
+	float y_orig, z_orig, z_delta;
+
+	Point * selectedPoint;
+};
+
 /** FUNCTION HEADERS **/
 const std::vector<Point> getPoints(int numPoints);
-void drawPolygon(Polygon & polygon, bool swapToWindow);
+void drawPolygon(Polygon & polygon);
 void drawPolygons();
 float randFloat(float min, float max);
 unsigned int getPointIndexById(int searchId);
@@ -53,6 +63,8 @@ float getPointDistance(Point a, Point b);
 Vector4f normalizeVector(Vector4f input);
 Point deCasteljau(const std::vector<Point> * P, float t);
 bool ShiftKeyHeld();
+bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis);
+void DoMainRendering(GLuint programID, glm::mat4 & MVP, glm::mat4 & modelMatrix);
 
 /** CONSTANTS **/
 const unsigned int POINT_COUNT = 8; // <<================================= POINT COUNT 
@@ -81,6 +93,10 @@ const unsigned int MODE_BEZIER = 256;
 
 const unsigned int DRAW_MODE_POINTS = 0;
 const unsigned int DRAW_MODE_LINES = 1;
+
+const unsigned int X_AXIS = 0;
+const unsigned int Y_AXIS = 1;
+const unsigned int Z_AXIS = 2;
 
 const Vector4f RED = { 1.f, 0.f, 0.f, 1.f };
 const Vector4f YELLOW = { 1.f, 1.f, 0.f, 1.f };
@@ -201,14 +217,13 @@ int main(){
 	glfwSetInputMode(WINDOW, GLFW_STICKY_KEYS, GL_TRUE);
 	
 
-	Point * selectedPoint = NULL; //Pointer to the selected Point object; populated when user clicks on a point. 
 	bool requiresRefresh = true;
-	//Just some variables that will be used to calculate the conversion between screen coordinates and vertex coordinates.
-	float m_x = -(COORD_X_MAX - COORD_X_MIN) / RESOLUTION_WIDTH;
-	float m_y = -(COORD_Y_MAX - COORD_Y_MIN) / RESOLUTION_HEIGHT;
-	float x_0, x_1;
-	float y_0, y_1;
-	float y_orig, z_orig, z_delta;
+	//Just some variables that will be used to calculate the conversion between screen coordinates and vertex coordinates
+
+	PickingVariables pickingVars;
+	pickingVars.m_x = -(COORD_X_MAX - COORD_X_MIN) / RESOLUTION_WIDTH;
+	pickingVars.m_y = -(COORD_Y_MAX - COORD_Y_MIN) / RESOLUTION_HEIGHT;
+	pickingVars.selectedPoint = NULL;
 
 	scaleFactor = 0.5f;
 	do{
@@ -220,156 +235,72 @@ int main(){
 			requiresRefresh = false;
 		}
 
-		glm::mat4 scaleMatrix = glm::scale(scaleFactor, scaleFactor, scaleFactor);
-		glm::mat4 translationMatrix = glm::translate(0.0f, 3.5f, 0.0f);
-		glm::mat4 modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
-		glm::mat4 MVP = projectionMatrix * viewMatrix * modelMatrix;
+		int viewCount = 2;
+		int mode = 2;
 
-		// PICKING IS DONE HERE
-		if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
-			mouseState |= MOUSE_PRESSED; 
+		//loop through the draw states of (1) drawing selection points and (2) drawing the actual screen
+		for (int drawState = 1; drawState <= 2; drawState += 1){
+			switch (drawState){
+			case 1: //drawing the selection points
+				glClearColor(1.0f, 1.0f, 1.0f, 1.0f); //blue screen of death
+				break;
+			case 2: //drawing the actual polygons
+				glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
+				break;
+			}
+			
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			glUseProgram(pickingProgramID);
-			{
-				// Send our transformation to the currently bound shader, in the "MVP" uniform
-				glUniformMatrix4fv(pickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
+			for (int view = 0; view < viewCount; view += 1){
+				glm::mat4 scaleMatrix, translationMatrix, rotationMatrix;
+				glm::mat4 modelMatrix;
+				glm::mat4 MVP;
 
+				if (mode == 1){
+					scaleFactor = 1;
+					modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
+					MVP = projectionMatrix * viewMatrix * modelMatrix;
+				}
+				if (mode == 2){
+					scaleFactor = 0.5;
 
-				//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
-
-				drawPolygon(primaryPolygon, false);
-
-				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-				// Read the pixel at the center of the screen.
-				// You can also use glfwGetMousePos().
-				// Ultra-mega-over slow too, even for 1 pixel, 
-				// because the framebuffer is on the GPU.
-				double xpos, ypos;
-				glfwGetCursorPos(WINDOW, &xpos, &ypos);
-				unsigned char data[4];
-				glReadPixels(xpos, RESOLUTION_HEIGHT - ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data); // OpenGL renders with (0,0) on bottom, mouse reports with (0,0) on top
-
-				// Convert the color back to an integer ID
-				int pickedID = int(data[0]);
-
-				
-				
-				if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
-					if (selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
-						if (!ShiftKeyHeld()){
-							float x_n = (1.f / scaleFactor) * m_x * (xpos - x_0) + x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
-							float y_n = (1.f / scaleFactor) * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
-
-							//Update the position
-							selectedPoint->XYZW[0] = x_n;
-							selectedPoint->XYZW[1] = y_n;
-
-							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
-							y_orig = selectedPoint->XYZW[1];
-							z_orig = selectedPoint->XYZW[2];
-							z_delta = 0.f;
-						}
-						else{
-							float y_n = (1.f / scaleFactor) * Z_MOVE_Y_MOD * m_y * (ypos - y_0) + y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
-
-							z_delta = y_n - y_orig;
-
-							selectedPoint->XYZW[2] = std::max(z_orig + z_delta, CAMERA_EYE_Z);
-						}
-
-						std::printf("Position of point %d is now <%.1f, %.1f, %.1f>\n", selectedPoint->id, selectedPoint->XYZW[0], selectedPoint->XYZW[1], selectedPoint->XYZW[2]);
+					switch (view){
+					case 0:
+						scaleMatrix = glm::scale(scaleFactor, scaleFactor, scaleFactor);
+						translationMatrix = glm::translate(0.0f, 3.5f, 0.0f);
+						modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
+						MVP = projectionMatrix * viewMatrix * modelMatrix;
+						break;
+					case 1:
+						scaleMatrix = glm::scale(scaleFactor, scaleFactor, scaleFactor);
+						translationMatrix = glm::translate(0.0f, -3.5f, 0.0f);
+						modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
+						MVP = projectionMatrix * viewMatrix * modelMatrix;
+						break;
 					}
 				}
-				else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
-					if (pickedID != 255){ //Not the background
-						selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
-						if (selectedPoint != NULL){ //Make sure something didn't go wrong
-							selectedPoint->setRGBA(RED);
-							selectedPoint->pointSize *= 2.f;
-							//selectedPoint->invertColor();
 
-							//Update the reference points so our conversion math works in the next states (see above).
-							x_0 = xpos;
-							x_1 = selectedPoint->XYZW[0];
+				switch (drawState){
+				case 1: 
+					requiresRefresh |= DoPicking(pickingProgramID, MVP, pickingVars, X_AXIS, Y_AXIS, Z_AXIS);
 
-							y_0 = ypos;
-							y_1 = selectedPoint->XYZW[1];
-
-							y_orig = selectedPoint->XYZW[1];
-							z_orig = selectedPoint->XYZW[2];
-							z_delta = 0.f;
-						}
-
-						//Update the mouse state
-						mouseState = MOUSE_HELD;
-					}
-					else{
-						if (selectedPoint != NULL){
-							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
-							y_orig = selectedPoint->XYZW[1];
-							z_orig = selectedPoint->XYZW[2];
-							z_delta = 0.f;
-						}
-					}
+					glFlush();
+					glFinish();
+					break;
+				case 2:
+					DoMainRendering(programID, MVP, modelMatrix);
+					break;
 				}
-				requiresRefresh = true;
 			}
 		}
-		else{ //The mouse is not being clicked
-			if (mouseState & MOUSE_HAS_CLICKED){ //but the mouse WAS clicked before (so it's been released).
-				if (selectedPoint != NULL){
-					//selectedPoint->setRGBA(1.f, 0.f, 0.f, 1.f); //Return the point to its original color.
-					//selectedPoint->invertColor();
-					selectedPoint->setRGBA(WHITE);
-					selectedPoint->pointSize /= 2.f;
-				}
-
-				selectedPoint = NULL; //clear it, just to be safe
-				mouseState = 0; //Return the mouse state to 0 (no click events present)
-				requiresRefresh = true;
-			}
-		}
-
-		//updatePointVao(pointBuffer, pointVerticies, POINT_COUNT); // Refresh the vertices
-
-		glUseProgram(programID); //Use the normal shaders
-		{
-			glUniformMatrix4fv(matrixID, 1, GL_FALSE, &MVP[0][0]);
-			glUniformMatrix4fv(modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
-			glUniformMatrix4fv(viewMatrixID, 1, GL_FALSE, &viewMatrix[0][0]);
-			glm::vec3 lightPos = glm::vec3(4, 4, 4);
-			glUniform3f(lightID, lightPos.x, lightPos.y, lightPos.z);
-
-			DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
-
-			DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-			DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
-
-			if (!HideSelectionPoints){
-				DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
-				DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
-			}
-
-			drawPolygons();
-
-			glm::mat4 translationMatrix = glm::translate(0.0f, -3.5f, 0.0f);
-			glm::mat4 modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
-		}
+		glfwSwapBuffers(WINDOW);
 
 		glfwPollEvents();
 		requiresRefresh |= handleModeState(); //Check for input and change the mode state appropriately
 	} while (glfwGetKey(WINDOW, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(WINDOW) == 0);
 }
 
-void drawPolygon(Polygon & polygon, bool swapToWindow){
-	if (swapToWindow){
-		glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
-	}
-	else{
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	}
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+void drawPolygon(Polygon & polygon){
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -378,20 +309,9 @@ void drawPolygon(Polygon & polygon, bool swapToWindow){
 
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
-
-
-	if (swapToWindow ^ DEBUG_SELECTION_DRAW){ //If we're not debugging,
-		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
-	}
-	else{ //If we are debugging, we aren't going to show this on the window
-		glFlush();
-		glFinish();
-	}
 }
 
 void drawPolygons(){
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -414,15 +334,6 @@ void drawPolygons(){
 
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
-
-
-	if (!DEBUG_SELECTION_DRAW){ //If we're not debugging,
-		glfwSwapBuffers(WINDOW); //just swap the buffer to the window and we're good
-	}
-	else{ //If we are debugging, we aren't going to show this on the window
-		glFlush();
-		glFinish();
-	}
 }
 
 
@@ -873,5 +784,142 @@ bool ShiftKeyHeld(){
 		else{
 			return false;
 		}
+	}
+}
+
+bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis){
+	bool requiresRefresh = false;
+	
+	// PICKING IS DONE HERE
+	if (glfwGetMouseButton(WINDOW, GLFW_MOUSE_BUTTON_LEFT)){
+		mouseState |= MOUSE_PRESSED;
+
+		glUseProgram(pickingProgramID);
+		{
+			// Send our transformation to the currently bound shader, in the "MVP" uniform
+			glUniformMatrix4fv(pickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
+
+
+			//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
+
+			drawPolygon(primaryPolygon);
+
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+			// Read the pixel at the center of the screen.
+			// You can also use glfwGetMousePos().
+			// Ultra-mega-over slow too, even for 1 pixel, 
+			// because the framebuffer is on the GPU.
+			double xpos, ypos;
+			glfwGetCursorPos(WINDOW, &xpos, &ypos);
+			unsigned char data[4];
+			glReadPixels(xpos, RESOLUTION_HEIGHT - ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data); // OpenGL renders with (0,0) on bottom, mouse reports with (0,0) on top
+
+			// Convert the color back to an integer ID
+			int pickedID = int(data[0]);
+
+
+
+			if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
+				if (pickingVars.selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
+					if (!ShiftKeyHeld()){
+						float x_n = (1.f / scaleFactor) * pickingVars.m_x * (xpos - pickingVars.x_0) + pickingVars.x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
+						float y_n = (1.f / scaleFactor) * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+
+						//Update the position
+						pickingVars.selectedPoint->XYZW[windowXAxis] = x_n;
+						pickingVars.selectedPoint->XYZW[windowYAxis] = y_n;
+
+						//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+						pickingVars.z_delta = 0.f;
+					}
+					else{
+						float y_n = (1.f / scaleFactor) * Z_MOVE_Y_MOD * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+
+						pickingVars.z_delta = y_n - pickingVars.y_orig;
+
+						pickingVars.selectedPoint->XYZW[windowZAxis] = std::max(pickingVars.z_orig + pickingVars.z_delta, CAMERA_EYE_Z);
+					}
+
+					std::printf("Position of point %d is now <%.1f, %.1f, %.1f>\n", pickingVars.selectedPoint->id, pickingVars.selectedPoint->XYZW[0], pickingVars.selectedPoint->XYZW[1], pickingVars.selectedPoint->XYZW[2]);
+				}
+			}
+			else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
+				if (pickedID != 255){ //Not the background
+					pickingVars.selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
+					if (pickingVars.selectedPoint != NULL){ //Make sure something didn't go wrong
+						pickingVars.selectedPoint->setRGBA(RED);
+						pickingVars.selectedPoint->pointSize *= 2.f;
+						//selectedPoint->invertColor();
+
+						//Update the reference points so our conversion math works in the next states (see above).
+						pickingVars.x_0 = xpos;
+						pickingVars.x_1 = pickingVars.selectedPoint->XYZW[windowXAxis];
+
+						pickingVars.y_0 = ypos;
+						pickingVars.y_1 = pickingVars.selectedPoint->XYZW[windowYAxis];
+
+						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+						pickingVars.z_delta = 0.f;
+					}
+
+					//Update the mouse state
+					mouseState = MOUSE_HELD;
+				}
+				else{
+					if (pickingVars.selectedPoint != NULL){
+						//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+						pickingVars.z_delta = 0.f;
+					}
+				}
+			}
+			requiresRefresh = true;
+		}
+	}
+	else{ //The mouse is not being clicked
+		if (mouseState & MOUSE_HAS_CLICKED){ //but the mouse WAS clicked before (so it's been released).
+			if (pickingVars.selectedPoint != NULL){
+				//selectedPoint->setRGBA(1.f, 0.f, 0.f, 1.f); //Return the point to its original color.
+				//selectedPoint->invertColor();
+				pickingVars.selectedPoint->setRGBA(WHITE);
+				pickingVars.selectedPoint->pointSize /= 2.f;
+			}
+
+			pickingVars.selectedPoint = NULL; //clear it, just to be safe
+			mouseState = 0; //Return the mouse state to 0 (no click events present)
+			requiresRefresh = true;
+		}
+	}
+	return requiresRefresh;
+}
+
+void DoMainRendering(GLuint programID, glm::mat4 & MVP, glm::mat4 & modelMatrix){
+
+	glUseProgram(programID); //Use the normal shaders
+	{
+		//glfwSwapInterval(1);
+
+		glUniformMatrix4fv(matrixID, 1, GL_FALSE, &MVP[0][0]);
+		glUniformMatrix4fv(modelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
+		glUniformMatrix4fv(viewMatrixID, 1, GL_FALSE, &viewMatrix[0][0]);
+		glm::vec3 lightPos = glm::vec3(4, 4, 4);
+		glUniform3f(lightID, lightPos.x, lightPos.y, lightPos.z);
+
+		DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
+
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+
+		if (!HideSelectionPoints){
+			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
+			DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+		}
+
+		drawPolygons();
 	}
 }
