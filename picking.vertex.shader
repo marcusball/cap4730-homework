@@ -8,14 +8,16 @@ layout(location = 3) in float vertexSize;
 out vec4 vs_vertexColor;
 
 uniform mat4 MVP;
+uniform uint viewId;
 
 void main(){
 	gl_Position = MVP * vertexPosition_modelspace;
 	gl_PointSize = vertexSize;
 
 	float colorId = pointId / 255.0;
+	float colorViewId = viewId / 255.0;
 
-	vs_vertexColor = vec4(colorId, 0.0, 0.0, 1.0);	// set color based on the ID mark
+	vs_vertexColor = vec4(colorId, 0.0, colorViewId, 1.0);	// set color based on the ID mark
 }
 
 

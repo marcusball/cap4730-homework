@@ -43,6 +43,8 @@ struct PickingVariables{
 	float y_0, y_1;
 	float y_orig, z_orig, z_delta;
 
+	int selectedView;
+
 	Point * selectedPoint;
 };
 
@@ -63,7 +65,7 @@ float getPointDistance(Point a, Point b);
 Vector4f normalizeVector(Vector4f input);
 Point deCasteljau(const std::vector<Point> * P, float t);
 bool ShiftKeyHeld();
-bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis);
+bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, int viewId, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis);
 void DoMainRendering(GLuint programID, glm::mat4 & MVP, glm::mat4 & modelMatrix);
 
 /** CONSTANTS **/
@@ -123,6 +125,7 @@ GLuint pickingMatrixID;
 GLuint viewMatrixID;
 GLuint modelMatrixID;
 GLuint lightID;
+GLuint pickingViewID;
 
 Polygon primaryPolygon;
 LinePolygon primaryLinePolygon;
@@ -210,6 +213,7 @@ int main(){
 	viewMatrixID = glGetUniformLocation(programID, "V");
 	modelMatrixID = glGetUniformLocation(programID, "M");
 	pickingMatrixID = glGetUniformLocation(pickingProgramID, "MVP");
+	pickingViewID = glGetUniformLocation(pickingProgramID, "viewId");
 
 	// Get a handle for our "LightPosition" uniform
 	lightID = glGetUniformLocation(programID, "LightPosition_worldspace");
@@ -224,6 +228,8 @@ int main(){
 	pickingVars.m_x = -(COORD_X_MAX - COORD_X_MIN) / RESOLUTION_WIDTH;
 	pickingVars.m_y = -(COORD_Y_MAX - COORD_Y_MIN) / RESOLUTION_HEIGHT;
 	pickingVars.selectedPoint = NULL;
+
+	unsigned int view_x_axis, view_y_axis, view_z_axis;
 
 	scaleFactor = 0.5f;
 	do{
@@ -256,6 +262,10 @@ int main(){
 				glm::mat4 modelMatrix;
 				glm::mat4 MVP;
 
+				view_x_axis = X_AXIS;
+				view_y_axis = Y_AXIS;
+				view_z_axis = Z_AXIS;
+
 				if (mode == 1){
 					scaleFactor = 1;
 					modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
@@ -273,16 +283,21 @@ int main(){
 						break;
 					case 1:
 						scaleMatrix = glm::scale(scaleFactor, scaleFactor, scaleFactor);
+						rotationMatrix = glm::rotate(90.f, glm::vec3(0.f, 1.f, 0.f));
 						translationMatrix = glm::translate(0.0f, -3.5f, 0.0f);
-						modelMatrix = glm::mat4(1.0) * scaleMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
+						modelMatrix = glm::mat4(1.0) * scaleMatrix * rotationMatrix * translationMatrix; // TranslationMatrix * RotationMatrix;
 						MVP = projectionMatrix * viewMatrix * modelMatrix;
+
+						view_x_axis = Z_AXIS;
+						view_y_axis = Y_AXIS;
+						view_z_axis = X_AXIS;
 						break;
 					}
 				}
 
 				switch (drawState){
 				case 1: 
-					requiresRefresh |= DoPicking(pickingProgramID, MVP, pickingVars, X_AXIS, Y_AXIS, Z_AXIS);
+					requiresRefresh |= DoPicking(pickingProgramID, MVP, pickingVars, view, view_x_axis, view_y_axis, view_z_axis);
 
 					glFlush();
 					glFinish();
@@ -787,7 +802,7 @@ bool ShiftKeyHeld(){
 	}
 }
 
-bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis){
+bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pickingVars, int viewId, unsigned int windowXAxis, unsigned int windowYAxis, unsigned int windowZAxis){
 	bool requiresRefresh = false;
 	
 	// PICKING IS DONE HERE
@@ -798,6 +813,7 @@ bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pick
 		{
 			// Send our transformation to the currently bound shader, in the "MVP" uniform
 			glUniformMatrix4fv(pickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
+			glUniform1ui(pickingViewID, viewId);
 
 
 			//HiddenDisplayQueue.push(VaoItem(pointBuffer, pointBufferArray, POINT_COUNT, DRAW_MODE_POINTS));
@@ -817,68 +833,72 @@ bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pick
 
 			// Convert the color back to an integer ID
 			int pickedID = int(data[0]);
+			int pickedView = int(data[2]);
 
+			if (pickedView == viewId || pickingVars.selectedView == viewId){
 
+				if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
+					if (pickingVars.selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
+						if (!ShiftKeyHeld()){
+							float x_n = (1.f / scaleFactor) * pickingVars.m_x * (xpos - pickingVars.x_0) + pickingVars.x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
+							float y_n = (1.f / scaleFactor) * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
 
-			if (mouseState & MOUSE_HELD){ //If the mouse has already been held down for some amount of time...
-				if (pickingVars.selectedPoint != NULL){ //Make sure we actually got a selected point, and it's not a null pointer
-					if (!ShiftKeyHeld()){
-						float x_n = (1.f / scaleFactor) * pickingVars.m_x * (xpos - pickingVars.x_0) + pickingVars.x_1; //Calculate the new point position; map (0 - screen_width) -> (-1 - 1)
-						float y_n = (1.f / scaleFactor) * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
+							//Update the position
+							pickingVars.selectedPoint->XYZW[windowXAxis] = x_n;
+							pickingVars.selectedPoint->XYZW[windowYAxis] = y_n;
 
-						//Update the position
-						pickingVars.selectedPoint->XYZW[windowXAxis] = x_n;
-						pickingVars.selectedPoint->XYZW[windowYAxis] = y_n;
+							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+							pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+							pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+							pickingVars.z_delta = 0.f;
+						}
+						else{
+							float y_n = (1.f / scaleFactor) * Z_MOVE_Y_MOD * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
 
-						//Reset the Z tracking values so they're up to date if the user suddenly presses shift
-						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
-						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
-						pickingVars.z_delta = 0.f;
+							pickingVars.z_delta = y_n - pickingVars.y_orig;
+
+							pickingVars.selectedPoint->XYZW[windowZAxis] = std::max(pickingVars.z_orig + pickingVars.z_delta, CAMERA_EYE_Z);
+						}
+
+						std::printf("Position of point %d is now <%.1f, %.1f, %.1f>\n", pickingVars.selectedPoint->id, pickingVars.selectedPoint->XYZW[0], pickingVars.selectedPoint->XYZW[1], pickingVars.selectedPoint->XYZW[2]);
+					}
+				}
+				else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
+					if (pickedID != 255){ //Not the background
+						pickingVars.selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
+						if (pickingVars.selectedPoint != NULL){ //Make sure something didn't go wrong
+							pickingVars.selectedPoint->setRGBA(RED);
+							pickingVars.selectedPoint->pointSize *= 2.f;
+							//selectedPoint->invertColor();
+
+							pickingVars.selectedView = pickedView;
+
+							//Update the reference points so our conversion math works in the next states (see above).
+							pickingVars.x_0 = xpos;
+							pickingVars.x_1 = pickingVars.selectedPoint->XYZW[windowXAxis];
+
+							pickingVars.y_0 = ypos;
+							pickingVars.y_1 = pickingVars.selectedPoint->XYZW[windowYAxis];
+
+							pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+							pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+							pickingVars.z_delta = 0.f;
+						}
+
+						//Update the mouse state
+						mouseState = MOUSE_HELD;
 					}
 					else{
-						float y_n = (1.f / scaleFactor) * Z_MOVE_Y_MOD * pickingVars.m_y * (ypos - pickingVars.y_0) + pickingVars.y_1; //Calculate new Y point position; map (0 - screen_height) -> (-1 - 1)
-
-						pickingVars.z_delta = y_n - pickingVars.y_orig;
-
-						pickingVars.selectedPoint->XYZW[windowZAxis] = std::max(pickingVars.z_orig + pickingVars.z_delta, CAMERA_EYE_Z);
+						if (pickingVars.selectedPoint != NULL){
+							//Reset the Z tracking values so they're up to date if the user suddenly presses shift
+							pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
+							pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
+							pickingVars.z_delta = 0.f;
+						}
 					}
-
-					std::printf("Position of point %d is now <%.1f, %.1f, %.1f>\n", pickingVars.selectedPoint->id, pickingVars.selectedPoint->XYZW[0], pickingVars.selectedPoint->XYZW[1], pickingVars.selectedPoint->XYZW[2]);
 				}
+				requiresRefresh = true;
 			}
-			else if (mouseState & MOUSE_PRESSED){ //If the mouse just now got clicked for the first time (eg. click begins)
-				if (pickedID != 255){ //Not the background
-					pickingVars.selectedPoint = getPointById(pickedID); //get a pointer to the selected Point object
-					if (pickingVars.selectedPoint != NULL){ //Make sure something didn't go wrong
-						pickingVars.selectedPoint->setRGBA(RED);
-						pickingVars.selectedPoint->pointSize *= 2.f;
-						//selectedPoint->invertColor();
-
-						//Update the reference points so our conversion math works in the next states (see above).
-						pickingVars.x_0 = xpos;
-						pickingVars.x_1 = pickingVars.selectedPoint->XYZW[windowXAxis];
-
-						pickingVars.y_0 = ypos;
-						pickingVars.y_1 = pickingVars.selectedPoint->XYZW[windowYAxis];
-
-						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
-						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
-						pickingVars.z_delta = 0.f;
-					}
-
-					//Update the mouse state
-					mouseState = MOUSE_HELD;
-				}
-				else{
-					if (pickingVars.selectedPoint != NULL){
-						//Reset the Z tracking values so they're up to date if the user suddenly presses shift
-						pickingVars.y_orig = pickingVars.selectedPoint->XYZW[windowYAxis];
-						pickingVars.z_orig = pickingVars.selectedPoint->XYZW[windowZAxis];
-						pickingVars.z_delta = 0.f;
-					}
-				}
-			}
-			requiresRefresh = true;
 		}
 	}
 	else{ //The mouse is not being clicked
@@ -891,6 +911,7 @@ bool DoPicking(GLuint pickingProgramID, glm::mat4 & MVP, PickingVariables & pick
 			}
 
 			pickingVars.selectedPoint = NULL; //clear it, just to be safe
+			pickingVars.selectedView = 0;
 			mouseState = 0; //Return the mouse state to 0 (no click events present)
 			requiresRefresh = true;
 		}
