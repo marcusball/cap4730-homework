@@ -25,15 +25,15 @@
 #include "Polygon.h"
 #include "LinePolygon.h"
 
-enum PolygonTypes{
+enum class PolygonType{
 	Points,
 	Lines
 };
 
 struct PolygonQueueItem{
-	PolygonQueueItem(Polygon & p, PolygonTypes t):polygon(p), type(t){}
+	PolygonQueueItem(Polygon & p, PolygonType t):polygon(p), type(t){}
 	Polygon & polygon;
-	PolygonTypes type;
+	PolygonType type;
 };
 
 struct PickingVariables{
@@ -348,14 +348,16 @@ void drawPolygons(){
 		PolygonQueueItem top = DisplayQueue.front();
 
 		switch (top.type){
-		case (Points):
-			top.polygon.render();
-			break;
-		case(Lines) :
-			LinePolygon & polygonCast = static_cast<LinePolygon &>(top.polygon);
-			polygonCast.render();
+			case (PolygonType::Points) : {
+				top.polygon.render();
+				break;
+			}
+			case(PolygonType::Lines) : {
+				LinePolygon & polygonCast = static_cast<LinePolygon &>(top.polygon);
+				polygonCast.render();
+				break;
+			}
 		}
-		
 
 		DisplayQueue.pop();
 	}
@@ -601,8 +603,8 @@ void generateSecondaryPoints(){
 		}
 
 		//drawPolygon(subdivPoly, true);
-		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, PolygonType::Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, PolygonType::Points));
 
 		delete P_k;
 	}
@@ -687,13 +689,10 @@ void generateSecondaryPoints(){
 
 			secondaryLinePolygon.setColor(GREEN);
 			secondaryLinePolygon.init(&vertices);
-
-			
 		}
 		else{
 			secondaryPolygon.update(&controlPoints);
 			secondaryLinePolygon.update(&vertices);
-			
 		}
 
 		//I added in a second draw mode to hide the control lines
@@ -954,14 +953,14 @@ void DoMainRendering(GLuint programID, glm::mat4 & MVP, glm::mat4 & modelMatrix)
 		glm::vec3 lightPos = glm::vec3(4, 4, 4);
 		glUniform3f(lightID, lightPos.x, lightPos.y, lightPos.z);
 
-		DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, Lines));
+		DisplayQueue.push(PolygonQueueItem(tertiaryLinePolygon, PolygonType::Lines));
 
-		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, Lines));
-		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, Points));
+		DisplayQueue.push(PolygonQueueItem(secondaryLinePolygon, PolygonType::Lines));
+		DisplayQueue.push(PolygonQueueItem(secondaryPolygon, PolygonType::Points));
 
 		if (!HideSelectionPoints){
-			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, Lines));
-			DisplayQueue.push(PolygonQueueItem(primaryPolygon, Points));
+			DisplayQueue.push(PolygonQueueItem(primaryLinePolygon, PolygonType::Lines));
+			DisplayQueue.push(PolygonQueueItem(primaryPolygon, PolygonType::Points));
 		}
 
 		drawPolygons();
