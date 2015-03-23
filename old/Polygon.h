@@ -2,7 +2,7 @@
 #include <GL/glew.h>
 #include <vector>
 #include <array>
-#include "Point.h"
+#include "Vectors.h"
 
 class Polygon
 {

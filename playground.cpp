@@ -29,9 +29,7 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 
-#include "Point.h"
-#include "Polygon.h"
-#include "LinePolygon.h"
+#include "RenderableObject.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -74,16 +72,23 @@ GLuint ViewMatrixID;
 GLuint ModelMatrixID;
 GLuint LightID;
 
+/***************************************************/
+/** Program entry-point and main graphics loop    **/
+/***************************************************/
 int main(){
+	//Initialize the window and create a GUI.
 	if (!InitializeWindow()){
 		glfwTerminate();
 		return 1;
 	}
+
+	//Initialize OpenGL
 	if (!InitializeOpenGL()){
 		glfwTerminate();
 		return 1;
 	}
 
+	//Perform the main render loop
 	double lastTime = glfwGetTime();
 	int nbFrames = 0;
 	do {
@@ -107,7 +112,8 @@ int main(){
 		RenderScene();
 
 		glfwPollEvents();
-	} // Check if the ESC key was pressed or the window was closed
+	} 
+	// Loop and render until ESC is pressed to quit.
 	while (glfwGetKey(Window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(Window) == 0);
 
 	return 0;
