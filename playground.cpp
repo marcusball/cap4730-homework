@@ -59,8 +59,7 @@ const float CAMERA_EYE_Z = 10.f;
 // Global Variables
 GLFWwindow * Window;
 std::string GUIMessage;
-std::vector<int> ListenedKeys;
-std::vector<int> PressedKeys;
+std::array<bool,350> PressedKeys;
 std::vector<RenderableObject *> RenderQueue;
 
 GLuint ProgramID;
@@ -74,6 +73,8 @@ GLuint PickingMatrixID;
 GLuint ViewMatrixID;
 GLuint ModelMatrixID;
 GLuint LightID;
+
+bool CameraFlipped = false;
 
 /***************************************************/
 /** Program entry-point and main graphics loop    **/
@@ -172,6 +173,7 @@ bool InitializeWindow(){
 	TwAddVarRW(GUI, "Last picked object", TW_TYPE_STDSTRING, &GUIMessage, NULL);*/
 
 	// Set up inputs
+	glfwSetInputMode(Window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetCursorPos(Window, RESOLUTION_WIDTH / 2, RESOLUTION_HEIGHT / 2);
 	glfwSetKeyCallback(Window, KeyCallback);
 	glfwSetMouseButtonCallback(Window, MouseCallback);
@@ -209,8 +211,6 @@ bool InitializeOpenGL(){
 
 	// Get a handle for our "LightPosition" uniform
 	LightID = glGetUniformLocation(ProgramID, "LightPosition_worldspace");
-
-	glfwSetInputMode(Window, GLFW_STICKY_KEYS, GL_TRUE);
 
 	return true;
 }
@@ -256,19 +256,111 @@ void RenderScene(){
 /** Input callback and event handlers             **/
 /***************************************************/
 static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods){
+	//What to do for single key presses
 	if (action == GLFW_PRESS) {
+		PressedKeys[key] = true;
+	}
+	if (action == GLFW_RELEASE){
+		if (PressedKeys[key] == false){ return; } //Only activate if the key was pressed, and not held down.
+
 		switch (key)
 		{
 		case GLFW_KEY_A:
+		case GLFW_KEY_LEFT: {
+			glm::vec3 rotationAxis(0.f, 1.f, 0.f);
+			glm::mat4 rotation = glm::rotate(15.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
 			break;
+		}
 		case GLFW_KEY_D:
+		case GLFW_KEY_RIGHT: {
+			glm::vec3 rotationAxis(0.f, 1.f, 0.f);
+			glm::mat4 rotation = glm::rotate(-15.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
 			break;
+		}
 		case GLFW_KEY_W:
+		case GLFW_KEY_UP: {
+			glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
+			cameraX = cameraX * ViewMatrix;
+			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
+
+			glm::mat4 rotation = glm::rotate(15.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
 			break;
+		}
 		case GLFW_KEY_S:
+		case GLFW_KEY_DOWN: {
+			glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
+			cameraX = cameraX * ViewMatrix;
+			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
+
+			glm::mat4 rotation = glm::rotate(-15.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
 			break;
+		}
 		case GLFW_KEY_SPACE:
 			break;
+		default:
+			break;
+		}
+	}
+
+	//What to do for keys held down
+	if (action == GLFW_REPEAT) {
+		if (PressedKeys[key]){
+			PressedKeys[key] = false; //Mark as not pressed so the release event doesn't fire for this key
+		}
+
+		switch (key)
+		{
+		case GLFW_KEY_A:
+		case GLFW_KEY_LEFT: {
+			glm::vec3 rotationAxis(0.f, 1.f, 0.f);
+			glm::mat4 rotation = glm::rotate(2.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
+			break;
+		}
+		case GLFW_KEY_D:
+		case GLFW_KEY_RIGHT : {
+			glm::vec3 rotationAxis(0.f, 1.f, 0.f);
+			glm::mat4 rotation = glm::rotate(-2.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
+			break;
+		}
+		case GLFW_KEY_W:
+		case GLFW_KEY_UP: {
+			//int degMod = (!CameraFlipped) ? 1 : -1;
+			glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
+			cameraX = cameraX * ViewMatrix;
+			/*glm::vec4 cameraZ(0.f, 1.f, 0.f, 1.f);
+			cameraZ = cameraZ * ViewMatrix;
+			cameraZ = -1 * cameraZ;*/
+			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
+
+			glm::mat4 rotation = glm::rotate(1.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
+
+			/*if (cameraZ.x < 0 && cameraZ.y < 0 && cameraZ.z < 0){
+				glm::vec4 cameraRollAxis(0.f, 0.f, 1.f,1.f);
+				cameraRollAxis = cameraRollAxis * ViewMatrix;
+				rotationAxis = glm::vec3(cameraRollAxis.x, cameraRollAxis.y, cameraRollAxis.z);
+				rotation = glm::rotate(180.f, rotationAxis);
+				ViewMatrix = ViewMatrix * rotation;
+				CameraFlipped = !CameraFlipped;
+			}*/
+			break;
+		}
+		case GLFW_KEY_S:
+		case GLFW_KEY_DOWN: {
+			glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
+			cameraX = cameraX * ViewMatrix;
+			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
+
+			glm::mat4 rotation = glm::rotate(-1.f, rotationAxis);
+			ViewMatrix = ViewMatrix * rotation;
+			break;
+		}
 		default:
 			break;
 		}
