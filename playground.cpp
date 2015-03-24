@@ -1,4 +1,3 @@
-#pragma comment(lib, "AntTweakBar.lib")
 #define _USE_MATH_DEFINES
 
 #include <stdio.h>
@@ -22,8 +21,6 @@
 #include <glm/gtx/quaternion.hpp>
 using namespace glm;
 
-#include <AntTweakBar.h>
-
 #include <common/shader.hpp>
 #include <common/controls.hpp>
 #include <common/objloader.hpp>
@@ -32,13 +29,13 @@ using namespace glm;
 #include "RenderableObject.h"
 #include "GridObject.h"
 #include "AxisObject.h"
+#include "LoadedObject.h"
 
 // Function prototypes
 bool InitializeWindow();
 bool InitializeOpenGL();
 static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods);
 static void MouseCallback(GLFWwindow * window, int button, int action, int mods);
-
 void RenderScene();
 
 // Constants
@@ -98,8 +95,13 @@ int main(){
 	AxisObject testAxis = AxisObject();
 	testAxis.Init(5.f);
 
+	LoadedObject testObject = LoadedObject();
+	testObject.SetColor(ColorVectors::RED);
+	testObject.LoadFromFile("models/base.obj");
+
 	RenderQueue.push_back(&testAxis);
 	RenderQueue.push_back(&testGrid);
+	RenderQueue.push_back(&testObject);
 
 	//Perform the main render loop
 	double lastTime = glfwGetTime();
@@ -164,13 +166,6 @@ bool InitializeWindow(){
 
 		return 1;
 	}
-
-	// Initialize the GUI
-	/*TwInit(TW_OPENGL_CORE, NULL);
-	TwWindowSize(RESOLUTION_WIDTH, RESOLUTION_HEIGHT);
-	TwBar * GUI = TwNewBar("Picking");
-	TwSetParam(GUI, NULL, "refresh", TW_PARAM_CSTRING, 1, "0.1");
-	TwAddVarRW(GUI, "Last picked object", TW_TYPE_STDSTRING, &GUIMessage, NULL);*/
 
 	// Set up inputs
 	glfwSetInputMode(Window, GLFW_STICKY_KEYS, GL_TRUE);

@@ -4,6 +4,9 @@
 Vertex::Vertex() : Position(0,0,0,1), Normal(0,0,0), Color(ColorVectors::WHITE){
 }
 
+Vertex::Vertex(Vector4f pos) : Position(pos), Normal(0,0,0), Color(ColorVectors::WHITE){
+
+}
 Vertex::Vertex(Vector4f pos, Vector3f norm) : Position(pos), Normal(norm), Color(ColorVectors::WHITE){
 
 }

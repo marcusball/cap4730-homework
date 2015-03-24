@@ -5,6 +5,7 @@ class Vertex
 {
 public:
 	Vertex();
+	Vertex(Vector4f pos);
 	Vertex(Vector4f pos, Vector3f norm);
 	Vertex(Vector4f pos, Vector3f norm, Vector4f color);
 	~Vertex();
