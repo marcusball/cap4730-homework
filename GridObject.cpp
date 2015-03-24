@@ -1,16 +1,16 @@
-#include "GridMesh.h"
+#include "GridObject.h"
 
 
-GridMesh::GridMesh(){
+GridObject::GridObject(){
 
 }
 
 
-GridMesh::~GridMesh()
+GridObject::~GridObject()
 {
 }
 
-void GridMesh::Init(float sideLength, int blockCount){
+void GridObject::Init(float sideLength, int blockCount){
 	this->Clear();
 	this->isInit = true;
 
@@ -19,12 +19,16 @@ void GridMesh::Init(float sideLength, int blockCount){
 
 	glGenBuffers(objectBuffers.size(), &objectBuffers[0]);
 
-	this->CreateVertexBuffers(sideLength, blockCount);
+	std::vector<unsigned int> indices;
+	std::vector<Vertex> vertices;
+	this->GenerateVertices(sideLength, blockCount, indices, vertices);
+
+	this->CreateVertexBuffers(&vertices, &indices);
 
 	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
 }
 
-void GridMesh::GenerateVertices(float sideLength, int blockCount, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices){
+void GridObject::GenerateVertices(float sideLength, int blockCount, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices){
 	//The number of verticies needed to display a grid. These are all verticies around the outer edge of the square.
 	int vertexCount = blockCount * 4; 
 
@@ -54,19 +58,19 @@ void GridMesh::GenerateVertices(float sideLength, int blockCount, std::vector<un
 
 		//Vertex on left side
 		outVertices[x].Position = Vector4f(-1 * hos, 0.f, -1 * hos * (1 - (positionFactor * x)) + hos * (positionFactor * x), 1.f); 
-		outVertices[x].Normal = Vector4f(0.f, 0.f, 1.f, 1.f);
+		outVertices[x].Normal = Vector3f(0.f, 0.f, 1.f);
 
 		//Vertex on top side
 		outVertices[blockCount + x].Position = Vector4f(-1 * hos * (1 - (positionFactor * x)) + hos * (positionFactor * x), 0.f, hos, 1.f);
-		outVertices[blockCount + x].Normal = Vector4f(0.f, 0.f, 1.f, 1.f); 
+		outVertices[blockCount + x].Normal = Vector3f(0.f, 0.f, 1.f); 
 
 		//Vertex on right side
 		outVertices[2 * blockCount + x].Position = Vector4f(hos, 0.f, hos * (1 - (positionFactor * x)) + -1 * hos * (positionFactor * x), 1.f);
-		outVertices[2 * blockCount + x].Normal = Vector4f(0.f, 0.f, 1.f, 1.f); 
+		outVertices[2 * blockCount + x].Normal = Vector3f(0.f, 0.f, 1.f); 
 
 		//Vertex on bottom side
 		outVertices[3 * blockCount + x].Position = Vector4f(hos * (1 - (positionFactor * x)) + -1 * hos * (positionFactor * x), 0.f, -1 * hos, 1.f);
-		outVertices[3 * blockCount + x].Normal = Vector4f(0.f, 0.f, 1.f, 1.f); 
+		outVertices[3 * blockCount + x].Normal = Vector3f(0.f, 0.f, 1.f); 
 	}
 
 	this->lineCount = verticesPerSide * 2; // VPS multipled by 2 to account for two adjacent sides.
@@ -83,43 +87,7 @@ void GridMesh::GenerateVertices(float sideLength, int blockCount, std::vector<un
 	}
 }
 
-void GridMesh::CreateVertexBuffers(float sideLength, int blockCount){
-	std::vector<unsigned int> indices;
-	std::vector<Vector4f> positions;
-	std::vector<Vector4f> colors;
-	std::vector<Vector4f> normals;
-
-	std::vector<Vertex> vertices;
-	this->GenerateVertices(sideLength, blockCount, indices, vertices);
-
-	positions.reserve(vertices.size());
-	normals.reserve(vertices.size());
-	for (int x = 0; x < vertices.size(); x += 1){
-		positions.push_back(vertices[x].Position);
-		colors.push_back(vertices[x].Color);
-		normals.push_back(vertices[x].Normal);
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[POSITION_VB]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(positions[0]) * positions.size(), &positions[0], GL_STATIC_DRAW);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, positions[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[COLOR_VB]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(colors[0]) * colors.size(), &colors[0], GL_STATIC_DRAW);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, colors[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
-
-	/*glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[NORMAL_VB]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(normals[0]) * normals.size(), &normals[0], GL_STATIC_DRAW);
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, normals[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);*/
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, objectBuffers[INDEX_VB]);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), &indices[0], GL_STATIC_DRAW);
-}
-
-void GridMesh::Render(){
+void GridObject::Render(){
 	glBindVertexArray(this->objectVAO);
 
 	glEnable(GL_POINT_SMOOTH);

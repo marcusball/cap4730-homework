@@ -30,7 +30,8 @@ using namespace glm;
 #include <common/vboindexer.hpp>
 
 #include "RenderableObject.h"
-#include "GridMesh.h"
+#include "GridObject.h"
+#include "AxisObject.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -90,9 +91,13 @@ int main(){
 		return 1;
 	}
 
-	GridMesh testGrid = GridMesh();
+	GridObject testGrid = GridObject();
 	testGrid.Init(10, 10);
 
+	AxisObject testAxis = AxisObject();
+	testAxis.Init(5.f);
+
+	RenderQueue.push_back(&testAxis);
 	RenderQueue.push_back(&testGrid);
 
 	//Perform the main render loop
@@ -217,7 +222,7 @@ bool InitializeOpenGL(){
 void RenderScene(){
 	glUseProgram(ProgramID); //Use the normal shaders
 	{
-		glClearColor(0.0f, 0.0f, 0.4f, 0.0f); //blue screen of death
+		glClearColor(0.0f, 0.0f, 0.2f, 0.0f); //blue screen of death
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glEnable(GL_BLEND);

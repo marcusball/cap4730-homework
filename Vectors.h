@@ -43,3 +43,16 @@ public:
 	float & operator[](int index);
 	const float & operator[](int index) const;
 };
+
+namespace ColorVectors{
+	static const Vector4f RED = Vector4f(1.f, 0.f, 0.f, 1.f);
+	static const Vector4f ORANGE = Vector4f(1.f, 0.6f, 0.f, 1.f);
+	static const Vector4f YELLOW = Vector4f(1.f, 1.f, 0.f, 1.f);
+	static const Vector4f GREEN = Vector4f(0.f, 1.f, 0.f, 1.f);
+	static const Vector4f CYAN = Vector4f(0.f, 1.f, 1.f, 1.f);
+	static const Vector4f BLUE = Vector4f(0.f, 0.f, 1.f, 1.f);
+	static const Vector4f PURPLE = Vector4f(1.f, 0.f, 1.f, 1.f);
+	static const Vector4f WHITE = Vector4f(1.f, 1.f, 1.f, 1.f);
+	static const Vector4f BLACK = Vector4f(0.f, 0.f, 0.f, 1.f);
+	static const Vector4f GREY50 = Vector4f(.5f, .5f, .5f, 1.f);
+};

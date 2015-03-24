@@ -28,6 +28,8 @@ protected:
 #define NORMAL_VB 3
 #define TEXTURE_COORD_VB 4
 
+	void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
+
 	bool isInit = false;
 
 	GLuint objectVAO;
