@@ -24,8 +24,9 @@ public:
 protected:
 #define INDEX_VB 0
 #define POSITION_VB 1
-#define NORMAL_VB 2
-#define TEXTURE_COORD_VB
+#define COLOR_VB 2
+#define NORMAL_VB 3
+#define TEXTURE_COORD_VB 4
 
 	bool isInit = false;
 

@@ -30,6 +30,7 @@ using namespace glm;
 #include <common/vboindexer.hpp>
 
 #include "RenderableObject.h"
+#include "GridMesh.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -50,15 +51,16 @@ const float COORD_X_MAX = 4.f;
 const float COORD_Y_MIN = -3.f;
 const float COORD_Y_MAX = 3.f;
 
-const float CAMERA_EYE_X = 0.f;
-const float CAMERA_EYE_Y = 0.f;
-const float CAMERA_EYE_Z = -5.f;
+const float CAMERA_EYE_X = 10.f;
+const float CAMERA_EYE_Y = 10.f;
+const float CAMERA_EYE_Z = 10.f;
 
 // Global Variables
 GLFWwindow * Window;
 std::string GUIMessage;
 std::vector<int> ListenedKeys;
 std::vector<int> PressedKeys;
+std::vector<RenderableObject *> RenderQueue;
 
 GLuint ProgramID;
 GLuint PickingProgramID;
@@ -87,6 +89,11 @@ int main(){
 		glfwTerminate();
 		return 1;
 	}
+
+	GridMesh testGrid = GridMesh();
+	testGrid.Init(10, 10);
+
+	RenderQueue.push_back(&testGrid);
 
 	//Perform the main render loop
 	double lastTime = glfwGetTime();
@@ -175,7 +182,8 @@ bool InitializeOpenGL(){
 	// Cull triangles which normal is not towards the camera
 	glEnable(GL_CULL_FACE);
 
-	ProjectionMatrix = glm::ortho(COORD_X_MIN, COORD_X_MAX, COORD_Y_MIN, COORD_Y_MAX, 0.0f, 100.0f); // In world coordinates
+	ProjectionMatrix = glm::perspective(45.f, 4.0f / 3.0f, 0.1f, 100.f);
+	//ProjectionMatrix = glm::ortho(COORD_X_MIN, COORD_X_MAX, COORD_Y_MIN, COORD_Y_MAX, 0.0f, 100.0f); // In world coordinates
 
 	// Camera matrix
 	ViewMatrix = glm::lookAt(
@@ -227,6 +235,10 @@ void RenderScene(){
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 		glm::vec3 lightPos = glm::vec3(4, 4, 4);
 		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
+
+		for (int x = 0; x < RenderQueue.size(); x += 1){
+			RenderQueue[x]->Render();
+		}
 
 		glBlendFunc(GL_NONE, GL_NONE);
 		glDisable(GL_BLEND);

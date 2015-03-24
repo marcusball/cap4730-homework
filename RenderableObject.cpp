@@ -5,7 +5,7 @@ RenderableObject::RenderableObject(){
 }
 
 RenderableObject::~RenderableObject(){
-
+	this->Clear();
 }
 
 void RenderableObject::Clear(){
