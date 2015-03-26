@@ -11,7 +11,7 @@ public:
 	LoadedObject();
 	~LoadedObject();
 
-	void LoadFromFile(std::string filename);
+	bool LoadFromFile(std::string filename);
 
 	void SetColor(Vector4f color);
 

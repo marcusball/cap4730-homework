@@ -30,6 +30,7 @@ using namespace glm;
 #include "GridObject.h"
 #include "AxisObject.h"
 #include "LoadedObject.h"
+#include "AssembledObject.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -99,9 +100,13 @@ int main(){
 	testObject.SetColor(ColorVectors::RED);
 	testObject.LoadFromFile("models/base.obj");
 
+	AssembledObject testAssembly = AssembledObject();
+	testAssembly.LoadFromFile("models/model.objc");
+
 	RenderQueue.push_back(&testAxis);
 	RenderQueue.push_back(&testGrid);
-	RenderQueue.push_back(&testObject);
+	//RenderQueue.push_back(&testObject);
+	RenderQueue.push_back(&testAssembly);
 
 	//Perform the main render loop
 	double lastTime = glfwGetTime();
@@ -305,7 +310,11 @@ static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, 
 	if (action == GLFW_REPEAT) {
 		if (PressedKeys[key]){
 			PressedKeys[key] = false; //Mark as not pressed so the release event doesn't fire for this key
+			CameraFlipped = false; //This marks a new key press, so we're going to reset the flip so direction will revert to a logical state
 		}
+
+		int degMod = (!CameraFlipped) ? 1 : -1;
+
 
 		switch (key)
 		{
@@ -325,25 +334,14 @@ static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, 
 		}
 		case GLFW_KEY_W:
 		case GLFW_KEY_UP: {
-			//int degMod = (!CameraFlipped) ? 1 : -1;
 			glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
 			cameraX = cameraX * ViewMatrix;
-			/*glm::vec4 cameraZ(0.f, 1.f, 0.f, 1.f);
-			cameraZ = cameraZ * ViewMatrix;
-			cameraZ = -1 * cameraZ;*/
+			//cameraZ = -1 * cameraZ;
 			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
 
-			glm::mat4 rotation = glm::rotate(1.f, rotationAxis);
+			glm::mat4 rotation = glm::rotate(1.f * degMod, rotationAxis);
 			ViewMatrix = ViewMatrix * rotation;
 
-			/*if (cameraZ.x < 0 && cameraZ.y < 0 && cameraZ.z < 0){
-				glm::vec4 cameraRollAxis(0.f, 0.f, 1.f,1.f);
-				cameraRollAxis = cameraRollAxis * ViewMatrix;
-				rotationAxis = glm::vec3(cameraRollAxis.x, cameraRollAxis.y, cameraRollAxis.z);
-				rotation = glm::rotate(180.f, rotationAxis);
-				ViewMatrix = ViewMatrix * rotation;
-				CameraFlipped = !CameraFlipped;
-			}*/
 			break;
 		}
 		case GLFW_KEY_S:
@@ -352,13 +350,25 @@ static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, 
 			cameraX = cameraX * ViewMatrix;
 			glm::vec3 rotationAxis(cameraX.x, cameraX.y, cameraX.z);
 
-			glm::mat4 rotation = glm::rotate(-1.f, rotationAxis);
+			glm::mat4 rotation = glm::rotate(-1.f * degMod, rotationAxis);
 			ViewMatrix = ViewMatrix * rotation;
 			break;
 		}
 		default:
 			break;
 		}
+	}
+
+	// Code to handle flipping of the camera when we hit a pole
+	glm::vec4 cameraZ(0.f, 1.f, 0.f, 1.f);
+	cameraZ = cameraZ * ViewMatrix;
+	if (cameraZ.y < 0){
+		glm::vec4 cameraRollAxis(0.f, 0.f, 1.f, 1.f);
+		cameraRollAxis = cameraRollAxis * ViewMatrix;
+		glm::vec3 rotationAxis = glm::vec3(cameraRollAxis.x, cameraRollAxis.y, cameraRollAxis.z);
+		glm::mat4 rotation = glm::rotate(180.f, rotationAxis);
+		ViewMatrix = ViewMatrix * rotation;
+		CameraFlipped = !CameraFlipped;
 	}
 }
 

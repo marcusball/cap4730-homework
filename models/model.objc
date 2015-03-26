@@ -1,0 +1,24 @@
+#wrote this bad file format to make things easy
+#kind of follows the concept of .obj files, though indices start at zero!
+#first is the array of object files `f "[file path]"`
+f "models/base.obj"
+f "models/top.obj"
+#then comes the joints. This is where objects will be connected and can pivot
+#format is `j [X] [Y] [Z]` in world coordinates.
+j 0 0 0
+j 0 1 0
+#Bones. These are connections between joints.
+#format is `b [child joint index] [parent joint index]
+b 1 0
+#transform vectors
+t 0 0 0
+t 0 0.5 0
+#colors in R G B
+c 1 0 0
+c 0 1 0
+#attachments. This is probably the most important part.
+#format is `a [file index] [joint index] [transform index (optional)] [color index]`
+#this is how an object gets assigned to its primary joint. 
+#the transform allows the object to be offset and positioned correctly RELATIVE to the joint
+a 0 0 1 0
+a 1 1 0 1

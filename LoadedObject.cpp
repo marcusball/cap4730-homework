@@ -17,7 +17,7 @@ void LoadedObject::SetColor(Vector4f color){
 	this->overrideColorSet = true;
 }
 
-void LoadedObject::LoadFromFile(std::string filename){
+bool LoadedObject::LoadFromFile(std::string filename){
 	this->Clear();
 	this->isInit = true;
 
@@ -28,7 +28,9 @@ void LoadedObject::LoadFromFile(std::string filename){
 
 	std::vector<unsigned int> indices;
 	std::vector<Vertex> vertices;
-	LoadedObject::LoadObject(filename.c_str(), vertices, indices);
+	if (LoadedObject::LoadObject(filename.c_str(), vertices, indices) == false){ //something bad happened
+		return false;
+	}
 	this->vertexCount = indices.size();
 
 	if (this->overrideColorSet){
@@ -40,6 +42,8 @@ void LoadedObject::LoadFromFile(std::string filename){
 	this->CreateVertexBuffers(&vertices, &indices);
 
 	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
+
+	return true;
 }
 
 bool LoadedObject::LoadObject(std::string filepath, std::vector<Vertex> & vertices, std::vector<unsigned int> & indices){
