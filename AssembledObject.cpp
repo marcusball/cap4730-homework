@@ -334,33 +334,6 @@ void AssembledObject::Render(RenderData renderData){
 	if (this->RootJoint == nullptr){ return;  }
 
 	this->RenderRecurse(this->RootJoint, renderData);
-	/*for (int x = 0; x < this->ObjectStructure.size(); x += 1){
-		this->ObjectStructure[x].InRenderQueue = false;
-	}
-
-	std::vector<bool> visitedJoints;
-	visitedJoints.resize(this->ObjectStructure.size());
-
-	std::queue<Joint *> RenderQueue;
-	RenderQueue.push(this->RootJoint);
-	this->RootJoint->InRenderQueue = true;
-	while (!RenderQueue.empty()){
-		Joint * currentJoint = RenderQueue.front();
-		RenderQueue.pop();
-
-		int numComponents = currentJoint->Components.size();
-		for (int x = 0; x < numComponents; x += 1){
-			currentJoint->Components[x].Object.Render();
-		}
-
-		int bones = currentJoint->Bones.size();
-		for (int x = 0; x < bones; x += 1){
-			if (currentJoint->Bones[x]->InRenderQueue == false){
-				RenderQueue.push(currentJoint->Bones[x]);
-				currentJoint->Bones[x]->InRenderQueue = true;
-			}
-		}
-	}*/
 }
 
 void AssembledObject::RenderRecurse(Joint * renderJoint, RenderData data){
