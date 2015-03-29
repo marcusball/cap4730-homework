@@ -237,15 +237,19 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 				rotationAngle = -rotationAngle / M_PI*180.f; //rad to deg
 				glm::mat4 rotation = glm::rotate(rotationAngle, rotationAxis);
 
-				fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * rotation;
+				if (at->FileIndex < fileComponents.size() && fileComponents[at->FileIndex]){
+					fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * rotation;
 
-				printf("Applied alignment for object %d.\n", at->FileIndex);
+					printf("Applied alignment for object %d.\n", at->FileIndex);
+				}
 			}
 		}
 		if (at->ShiftTransformIndex != -1){
 			glm::mat4 shift = glm::translate(transformations[at->ShiftTransformIndex]);
-			fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * shift;
-			printf("Applied shift for object %d.\n", at->FileIndex);
+			if (at->FileIndex < fileComponents.size() && fileComponents[at->FileIndex]){
+				fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * shift;
+				printf("Applied shift for object %d.\n", at->FileIndex);
+			}
 		}
 	}
 

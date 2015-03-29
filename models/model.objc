@@ -4,32 +4,54 @@
 f "models/base.obj"
 f "models/top.obj"
 f "models/arm1.obj"
+f "models/joint.obj"
+f "models/arm2.obj"
+f "models/pen.obj"
+f "models/button.obj"
 #then comes the joints. This is where objects will be connected and can pivot
 #format is `j [X] [Y] [Z]` in coordinates RELATIVE TO THE OTHER JOINT IT IS CONNECTED TO.
 j 0 0 0
 j 0 1.1 0
-j 1 1 0
+j 2.2 2.2 0
+j 1 -0.5 0
 #Bones. These are connections between joints.
 #format is `b [child joint index] [parent joint index]
 b 1 0
 b 2 1
+b 3 2
 #transform vectors
 t 0 0 0
 t 0 0.363979 0
-t 0 0.5 0
 t 0 1.8 0
 t 1 1 0
+t 0 0.5 0
+t 1 -0.5 0
+t 0.05 0.2 0
+t 0 0.2 0
 #colors in R G B
 c 1 0 0
 c 0 1 0
 c 0 0 1
+c 1 0 1
+c 0 1 1
+c 1 1 0
 #attachments. This is probably the most important part.
 #format is `a [file index] [joint index] [color index]`
 #this is how an object gets assigned to its primary joint. 
-#the transform allows the object to be offset and positioned correctly RELATIVE to the joint
 a 0 0 0
 a 1 1 1
 a 2 1 2
+a 3 2 3
+a 4 2 4
+a 5 3 5
+a 6 3 0
+#transform attachments
+#`ta [file index] [shift transform index] [(optional)direction index] [align axis (x/y/z)]`
+#the shift transform allows the object to be offset and positioned correctly RELATIVE to the joint
+#the direction is an index of one of the transform vectors, and allows the object to be pointed in the specified direction, along the given axis.
 ta 0 1
 ta 1 0
-ta 2 3 4 y
+ta 2 2 3 y
+ta 4 4 5 y
+ta 6 6
+ta 5 7 
