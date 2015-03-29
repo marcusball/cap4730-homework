@@ -6,12 +6,10 @@
 #include "LoadedObject.h"
 #include "Vectors.h"
 #include "Vertex.h"
+#include "Axis.h"
 
-struct AssemblyComponent{
-	std::string File;
-	LoadedObject Object; //The actual mesh that will be displayed for this component
-	glm::vec3 Translation; //A the transform to connect this to a joint in the correct location
-};
+struct AssemblyComponent;
+struct Joint;
 
 struct Joint{
 	glm::vec4 Position; //The initial starting position for this joint, in relation to the rest of the joints
@@ -23,6 +21,17 @@ struct Joint{
 	bool InRenderQueue = false;
 };
 
+struct AssemblyComponent{
+	AssemblyComponent() : Transform(1.f), AttachedTo(nullptr){};
+
+	std::string File;
+	LoadedObject Object; //The actual mesh that will be displayed for this component
+	//glm::vec3 Translation; //A the transform to connect this to a joint in the correct location
+	glm::mat4 Transform;
+
+	Joint * AttachedTo;
+};
+
 struct AttachmentContainer{
 	AttachmentContainer() : FileIndex(-1), JointIndex(-1), TransformIndex(-1), ColorIndex(-1){}
 
@@ -30,6 +39,15 @@ struct AttachmentContainer{
 	int JointIndex;
 	int TransformIndex;
 	int ColorIndex;
+};
+
+struct AttachmentTransform{
+	AttachmentTransform() : FileIndex(-1), AlignTransformIndex(-1), ShiftTransformIndex(-1), AlignAlong(Axis::Z){}
+
+	int FileIndex;
+	int AlignTransformIndex;
+	int ShiftTransformIndex;
+	Axis AlignAlong;
 };
 
 class AssembledObject : public RenderableObject

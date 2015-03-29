@@ -5,6 +5,8 @@
 #include "common/objloader.hpp"
 #include <algorithm>
 #include <queue>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 AssembledObject::AssembledObject(){
 
@@ -45,8 +47,10 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 	std::vector<std::string> files;
 	//std::vector<Joint> joints;
 	std::vector<Vector4f> colors;
-	std::vector<glm::vec3> transpositions;
+	std::vector<glm::vec3> transformations;
 	std::vector<AttachmentContainer> attachmentInfo;
+	std::vector<AttachmentTransform> attachmentTransforms;
+	std::vector<AssemblyComponent *> fileComponents;
 
 	printf("Loading object collection from file: \"%s\".\n", filepath.c_str());
 
@@ -118,9 +122,9 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 			glm::vec3 trans;
 			fscanf(file, "%f %f %f\n", &trans.x, &trans.y, &trans.z);
 
-			transpositions.push_back(trans);
+			transformations.push_back(trans);
 
-			printf("Parsed Transposition [%d]: <%.3f, %.3f, %.3f>\n", transpositions.size() - 1, trans.x, trans.y, trans.z);
+			printf("Parsed Transposition [%d]: <%.3f, %.3f, %.3f>\n", transformations.size() - 1, trans.x, trans.y, trans.z);
 		}
 		else if (strcmp(lineHeader, "c") == 0){
 			Vector4f color;
@@ -133,7 +137,7 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 		else if (strcmp(lineHeader, "a") == 0){
 			//int fileIndex, jointIndex, transposeIndex, colorIndex;
 			AttachmentContainer attachment;
-			int matches = fscanf(file, "%d %d %d %d\n", &attachment.FileIndex, &attachment.JointIndex, &attachment.TransformIndex, &attachment.ColorIndex);
+			int matches = fscanf(file, "%d %d %d\n", &attachment.FileIndex, &attachment.JointIndex, &attachment.ColorIndex);
 			
 			if (attachment.FileIndex >= files.size()){
 				printf("Error: attachment received input of invalid file index %d. Max file index is %d!\n", attachment.FileIndex, files.size() - 1);
@@ -143,16 +147,31 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 				printf("Error: attachment received input of invalid joint index %d. Max joint index is %d!\n", attachment.JointIndex, joints.size() - 1);
 				return false;
 			}
-			if (attachment.TransformIndex >= transpositions.size()){
-				printf("Error: attachment received input of invalid transposition index %d. Max transposition index is %d!\n", attachment.TransformIndex, transpositions.size() - 1);
-				return false;
-			}
 			if (attachment.ColorIndex >= colors.size()){
 				printf("Error: attachment received input of invalidcolor index %d. Max color index is %d!\n", attachment.ColorIndex, colors.size() - 1);
 				return false;
 			}
 
 			attachmentInfo.push_back(attachment);
+		}
+		else if (strcmp(lineHeader, "ta") == 0){
+			AttachmentTransform attachmentTransform;
+			fscanf(file, "%d %d %d %c\n", &attachmentTransform.FileIndex, &attachmentTransform.ShiftTransformIndex, &attachmentTransform.AlignTransformIndex, &attachmentTransform.AlignAlong);
+
+			if (attachmentTransform.FileIndex >= files.size()){
+				printf("Error: attachment transform received input of invalid file index %d. Max file index is %d!\n", attachmentTransform.FileIndex, files.size() - 1);
+				return false;
+			}
+			if (attachmentTransform.ShiftTransformIndex >= transformations.size()){
+				printf("Error: attachment shift transform received input of invalid transposition index %d. Max transposition index is %d!\n", attachmentTransform.ShiftTransformIndex, transformations.size() - 1);
+				return false;
+			}
+			if (attachmentTransform.AlignTransformIndex > 0 && attachmentTransform.AlignTransformIndex >= transformations.size()){
+				printf("Error: attachment align transform received input of invalid transposition index %d. Max transposition index is %d!\n", attachmentTransform.AlignTransformIndex, transformations.size() - 1);
+				return false;
+			}
+
+			attachmentTransforms.push_back(attachmentTransform);
 		}
 		else{
 			// Probably a comment, eat up the rest of the line
@@ -176,12 +195,9 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 		joint->Components.emplace_back();
 
 		AssemblyComponent * newObject = &(joint->Components.back());
+		fileComponents.push_back(newObject);
+		newObject->AttachedTo = joint;
 
-		if (attachment->TransformIndex != -1){ 
-			newObject->Translation = transpositions[attachment->TransformIndex];
-			printf("Object %d will receive transpose %d for attachment.\n", attachment->FileIndex, attachment->TransformIndex);
-		}
-		
 		if (attachment->ColorIndex != -1){
 			newObject->Object.SetColor(colors[attachment->ColorIndex]);
 			printf("Object %d has been given color <%.3f, %.3f, %.3f>.\n", attachment->FileIndex, colors[attachment->ColorIndex][0], colors[attachment->ColorIndex][1], colors[attachment->ColorIndex][2]);
@@ -194,6 +210,43 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 		}
 
 		printf("Successfully loaded and attached object %d.\n", attachment->FileIndex);
+	}
+
+	for (int x = 0; x < attachmentTransforms.size(); x += 1){
+		AttachmentTransform * at = &attachmentTransforms[x];
+		if (at->AlignTransformIndex != -1){
+			glm::vec3 targetDirection = glm::normalize(transformations[at->AlignTransformIndex]);
+
+			glm::vec3 alignmentAxis;
+			switch (at->AlignAlong){
+			case Axis::X:
+				alignmentAxis = AxisVector::X;
+				break;
+			case Axis::Y:
+				alignmentAxis = AxisVector::Y;
+				break;
+			case Axis::Z:
+			default:
+				alignmentAxis = AxisVector::Z;
+			}
+
+			float rotationAngle = std::acos(glm::dot(targetDirection, alignmentAxis));
+			if (std::fabs(rotationAngle) > 0.0001){
+				glm::vec3 rotationAxis = glm::normalize(glm::cross(targetDirection, alignmentAxis));
+
+				rotationAngle = -rotationAngle / M_PI*180.f; //rad to deg
+				glm::mat4 rotation = glm::rotate(rotationAngle, rotationAxis);
+
+				fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * rotation;
+
+				printf("Applied alignment for object %d.\n", at->FileIndex);
+			}
+		}
+		if (at->ShiftTransformIndex != -1){
+			glm::mat4 shift = glm::translate(transformations[at->ShiftTransformIndex]);
+			fileComponents[at->FileIndex]->Transform = fileComponents[at->FileIndex]->Transform * shift;
+			printf("Applied shift for object %d.\n", at->FileIndex);
+		}
 	}
 
 	return true;
@@ -274,6 +327,8 @@ bool AssembledObject::LoadObject(std::string filepath, std::vector<Vertex> & ver
 }
 
 void AssembledObject::Render(RenderData renderData){
+	if (this->RootJoint == nullptr){ return;  }
+
 	this->RenderRecurse(this->RootJoint, renderData);
 	/*for (int x = 0; x < this->ObjectStructure.size(); x += 1){
 		this->ObjectStructure[x].InRenderQueue = false;
@@ -308,7 +363,7 @@ void AssembledObject::RenderRecurse(Joint * renderJoint, RenderData data){
 	glm::mat4 modelMatrix = renderJoint->SubModelMatrixTransform * *data.ModelMatrix;
 	for (int x = 0; x < renderJoint->Components.size(); x += 1){
 		AssemblyComponent * component = &renderJoint->Components[x];
-		glm::mat4 componentModelMatrix = modelMatrix * glm::translate(component->Translation);
+		glm::mat4 componentModelMatrix = modelMatrix * component->Transform;
 
 		RenderData subData(data);
 		subData.ModelMatrix = &componentModelMatrix;
