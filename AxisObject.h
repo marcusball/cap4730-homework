@@ -13,7 +13,7 @@ public:
 
 	void Init(float lineLength = 5.f);
 
-	virtual void Render();
+	virtual void Render(RenderData renderData);
 
 private:
 	/*

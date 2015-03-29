@@ -15,7 +15,7 @@ public:
 
 	void SetColor(Vector4f color);
 
-	virtual void Render();
+	virtual void Render(RenderData renderData);
 
 private:
 

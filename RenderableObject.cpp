@@ -1,6 +1,6 @@
 #include "RenderableObject.h"
 
-RenderableObject::RenderableObject(){
+RenderableObject::RenderableObject() : objectVAO(0){
 
 }
 
@@ -26,6 +26,14 @@ void RenderableObject::Clear(){
 }
 
 void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices){
+	//// Create the VAO
+	//glGenVertexArrays(1, &this->objectVAO);
+	//glBindVertexArray(this->objectVAO);
+
+	//// Create the buffers for the vertices atttributes
+	//glGenBuffers(this->objectBuffers.size(), &this->objectBuffers[0]);
+
+
 	std::vector<Vector4f> positions;
 	std::vector<Vector4f> colors;
 	std::vector<Vector4f> normals;
@@ -38,12 +46,12 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 		normals.push_back((*vertices)[x].Normal);
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[POSITION_VB]);
+	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[POSITION_VB]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(positions[0]) * positions.size(), &positions[0], GL_STATIC_DRAW);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, positions[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[COLOR_VB]);
+	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[COLOR_VB]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(colors[0]) * colors.size(), &colors[0], GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, colors[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
@@ -53,6 +61,6 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(3, normals[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);*/
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, objectBuffers[INDEX_VB]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->objectBuffers[INDEX_VB]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof((*indices)[0]) * indices->size(), &(*indices)[0], GL_STATIC_DRAW);
 }

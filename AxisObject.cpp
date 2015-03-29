@@ -43,7 +43,7 @@ void AxisObject::GenerateVertices(float lineLength, std::vector<unsigned int> & 
 }
 
 
-void AxisObject::Render(){
+void AxisObject::Render(RenderData renderData){
 	glBindVertexArray(this->objectVAO);
 
 	glEnable(GL_POINT_SMOOTH);

@@ -19,6 +19,7 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp> 
 using namespace glm;
 
 #include <common/shader.hpp>
@@ -58,7 +59,7 @@ const float CAMERA_EYE_Z = 10.f;
 GLFWwindow * Window;
 std::string GUIMessage;
 std::array<bool,350> PressedKeys;
-std::vector<RenderableObject *> RenderQueue;
+std::queue<RenderableObject *> RenderQueue;
 
 GLuint ProgramID;
 GLuint PickingProgramID;
@@ -66,13 +67,16 @@ GLuint PickingProgramID;
 glm::mat4 ProjectionMatrix;
 glm::mat4 ViewMatrix;
 
-GLuint MatrixID;
+GLuint ProjectionMatrixID;
 GLuint PickingMatrixID;
 GLuint ViewMatrixID;
 GLuint ModelMatrixID;
 GLuint LightID;
 
 bool CameraFlipped = false;
+
+
+AssembledObject * DisplayModel;
 
 /***************************************************/
 /** Program entry-point and main graphics loop    **/
@@ -100,13 +104,8 @@ int main(){
 	testObject.SetColor(ColorVectors::RED);
 	testObject.LoadFromFile("models/base.obj");
 
-	AssembledObject testAssembly = AssembledObject();
-	testAssembly.LoadFromFile("models/model.objc");
-
-	RenderQueue.push_back(&testAxis);
-	RenderQueue.push_back(&testGrid);
-	//RenderQueue.push_back(&testObject);
-	RenderQueue.push_back(&testAssembly);
+	DisplayModel = new AssembledObject();
+	DisplayModel->LoadFromFile("models/model.objc");
 
 	//Perform the main render loop
 	double lastTime = glfwGetTime();
@@ -127,6 +126,11 @@ int main(){
 			if (phi > 360)
 				phi -= 360;
 		}*/
+
+		RenderQueue.push(&testAxis);
+		RenderQueue.push(&testGrid);
+		//RenderQueue.push_back(&testObject);
+		RenderQueue.push(DisplayModel);
 
 		// DRAWING POINTS
 		RenderScene();
@@ -204,10 +208,10 @@ bool InitializeOpenGL(){
 	PickingProgramID = LoadShaders("picking.vertex.shader", "picking.frag.shader");
 
 	// Get a handle for our "MVP" uniform
-	MatrixID = glGetUniformLocation(ProgramID, "MVP");
-	ViewMatrixID = glGetUniformLocation(ProgramID, "V");
-	ModelMatrixID = glGetUniformLocation(ProgramID, "M");
-	PickingMatrixID = glGetUniformLocation(PickingProgramID, "MVP");
+	ProjectionMatrixID = glGetUniformLocation(ProgramID, "ProjectionMatrix");
+	ViewMatrixID = glGetUniformLocation(ProgramID, "ViewMatrix");
+	ModelMatrixID = glGetUniformLocation(ProgramID, "ModelMatrix");
+	//PickingMatrixID = glGetUniformLocation(PickingProgramID, "MVP");
 
 	// Get a handle for our "LightPosition" uniform
 	LightID = glGetUniformLocation(ProgramID, "LightPosition_worldspace");
@@ -233,16 +237,29 @@ void RenderScene(){
 		glm::mat4 MVP;
 
 		modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
-		MVP = ProjectionMatrix * ViewMatrix * modelMatrix;
+		//MVP = ProjectionMatrix * ViewMatrix * modelMatrix;
 
-		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
-		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &modelMatrix[0][0]);
-		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
+		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
 		glm::vec3 lightPos = glm::vec3(4, 4, 4);
 		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 
-		for (int x = 0; x < RenderQueue.size(); x += 1){
-			RenderQueue[x]->Render();
+		RenderData renderData;
+		renderData.ModelMatrix = &modelMatrix;
+		renderData.ViewMatrix = &ViewMatrix;
+		renderData.ProjectionMatrix = &ProjectionMatrix;
+		renderData.ProjectionMatrixId = ProjectionMatrixID;
+		renderData.ModelMatrixId = ModelMatrixID;
+		renderData.ViewMatrixId = ViewMatrixID;
+
+		/*for (int x = 0; x < RenderQueue.size(); x += 1){
+			RenderQueue[x]->Render(renderData);
+			RenderQueue.
+		}*/
+		while (!RenderQueue.empty()){
+			RenderQueue.front()->Render(renderData);
+			RenderQueue.pop();
 		}
 
 		glBlendFunc(GL_NONE, GL_NONE);
@@ -257,6 +274,8 @@ void RenderScene(){
 /***************************************************/
 static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods){
 	//What to do for single key presses
+	if (key == -1){ return; }
+
 	if (action == GLFW_PRESS) {
 		PressedKeys[key] = true;
 	}
@@ -265,6 +284,11 @@ static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, 
 
 		switch (key)
 		{
+		case GLFW_KEY_R : {
+			DisplayModel->Clear();
+			DisplayModel->LoadFromFile("models/model.objc");
+			break;
+		}
 		case GLFW_KEY_A:
 		case GLFW_KEY_LEFT: {
 			glm::vec3 rotationAxis(0.f, 1.f, 0.f);

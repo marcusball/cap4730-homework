@@ -87,7 +87,7 @@ void GridObject::GenerateVertices(float sideLength, int blockCount, std::vector<
 	}
 }
 
-void GridObject::Render(){
+void GridObject::Render(RenderData renderData){
 	glBindVertexArray(this->objectVAO);
 
 	glEnable(GL_POINT_SMOOTH);

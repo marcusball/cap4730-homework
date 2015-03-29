@@ -1,5 +1,6 @@
 #include "LoadedObject.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp> 
 #include "common/objloader.hpp"
 
 
@@ -21,10 +22,10 @@ bool LoadedObject::LoadFromFile(std::string filename){
 	this->Clear();
 	this->isInit = true;
 
-	glGenVertexArrays(1, &objectVAO);
-	glBindVertexArray(objectVAO);
+	glGenVertexArrays(1, &this->objectVAO);
+	glBindVertexArray(this->objectVAO);
 
-	glGenBuffers(objectBuffers.size(), &objectBuffers[0]);
+	glGenBuffers(this->objectBuffers.size(), &this->objectBuffers[0]);
 
 	std::vector<unsigned int> indices;
 	std::vector<Vertex> vertices;
@@ -120,10 +121,13 @@ bool LoadedObject::LoadObject(std::string filepath, std::vector<Vertex> & vertic
 	return true;
 }
 
-void LoadedObject::Render(){
+void LoadedObject::Render(RenderData renderData){
 	glBindVertexArray(this->objectVAO);
 
 	glEnable(GL_POINT_SMOOTH);
+
+	//glUniformMatrix4fv(renderData.MVPId, 1, GL_FALSE, glm::value_ptr(MVP));
+	glUniformMatrix4fv(renderData.ModelMatrixId, 1, GL_FALSE, glm::value_ptr(*renderData.ModelMatrix));
 
 	glDrawElementsBaseVertex(GL_TRIANGLES, this->vertexCount, GL_UNSIGNED_INT, 0, 0);
 

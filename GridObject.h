@@ -18,7 +18,7 @@ public:
 
 	void Init(float sideLength, int blockCount = 10);
 
-	virtual void Render();
+	virtual void Render(RenderData renderData);
 
 private:
 	/*

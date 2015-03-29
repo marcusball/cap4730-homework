@@ -1,8 +1,22 @@
 #pragma once
 #include <GL/glew.h>
+#include <glm/glm.hpp>
 #include <vector>
 #include <array>
 #include "Vertex.h"
+
+struct RenderData{
+	GLuint ModelMatrixId;
+	glm::mat4 * ModelMatrix;
+
+	GLuint ViewMatrixId;
+	glm::mat4 * ViewMatrix;
+
+	GLuint ProjectionMatrixId;
+	glm::mat4 * ProjectionMatrix;
+
+	GLuint MVPId; 
+};
 
 class RenderableObject
 {
@@ -13,7 +27,7 @@ public:
 	/*
 	 * Called to render the object to the screen.
 	 */
-	virtual void Render() = 0; // The "= 0" makes this function require an implementation in child classes.
+	virtual void Render(RenderData renderData) = 0; // The "= 0" makes this function require an implementation in child classes.
 
 	/*
 	 * Called to reset initialized buffers and VAO. 

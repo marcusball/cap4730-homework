@@ -1,5 +1,7 @@
 #include "AssembledObject.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 #include "common/objloader.hpp"
 #include <algorithm>
 #include <queue>
@@ -13,21 +15,28 @@ AssembledObject::~AssembledObject()
 {
 }
 
+void AssembledObject::Clear(){
+	RenderableObject::Clear();
+
+	this->RootJoint = nullptr;
+	this->ObjectStructure.clear();
+}
+
 bool AssembledObject::LoadFromFile(std::string filename){
 	this->Clear();
 	this->isInit = true;
 
-	glGenVertexArrays(1, &objectVAO);
+	/*glGenVertexArrays(1, &objectVAO);
 	glBindVertexArray(objectVAO);
 
-	glGenBuffers(objectBuffers.size(), &objectBuffers[0]);
+	glGenBuffers(objectBuffers.size(), &objectBuffers[0]);*/
 
 	if (AssembledObject::LoadObjectCombination(filename.c_str(), this->ObjectStructure) == false){
 		return false; //Something went horribly wrong
 	}
 	this->RootJoint = &this->ObjectStructure[0];
 
-	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
+	//glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
 
 	return true;
 }
@@ -36,7 +45,8 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 	std::vector<std::string> files;
 	//std::vector<Joint> joints;
 	std::vector<Vector4f> colors;
-	std::vector<glm::vec4> transpositions;
+	std::vector<glm::vec3> transpositions;
+	std::vector<AttachmentContainer> attachmentInfo;
 
 	printf("Loading object collection from file: \"%s\".\n", filepath.c_str());
 
@@ -76,6 +86,7 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 			
 			Joint newJoint;
 			newJoint.Position = position;
+			newJoint.SubModelMatrixTransform = glm::translate(glm::vec3(position));
 			joints.push_back(newJoint);
 
 			Joint * debug = &joints[joints.size() - 1]; //Pointer to the newly inserted joint
@@ -104,9 +115,8 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 				rootJoint, debugR->Position.x, debugR->Position.y, debugR->Position.z);
 		}
 		else if (strcmp(lineHeader, "t") == 0){
-			glm::vec4 trans;
+			glm::vec3 trans;
 			fscanf(file, "%f %f %f\n", &trans.x, &trans.y, &trans.z);
-			trans.w = 1.f;
 
 			transpositions.push_back(trans);
 
@@ -121,61 +131,69 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 			printf("Parsed color [%d]: <%.3f, %.3f, %.3f>\n", colors.size() - 1, color[0], color[1], color[2]);
 		}
 		else if (strcmp(lineHeader, "a") == 0){
-			int fileIndex, jointIndex, transposeIndex, colorIndex;
-			int matches = fscanf(file, "%d %d %d %d\n", &fileIndex, &jointIndex, &transposeIndex, &colorIndex);
-
-			if (fileIndex >= files.size()){
-				printf("Error: attachment received input of invalid file index %d. Max file index is %d!\n", fileIndex, files.size() - 1);
+			//int fileIndex, jointIndex, transposeIndex, colorIndex;
+			AttachmentContainer attachment;
+			int matches = fscanf(file, "%d %d %d %d\n", &attachment.FileIndex, &attachment.JointIndex, &attachment.TransformIndex, &attachment.ColorIndex);
+			
+			if (attachment.FileIndex >= files.size()){
+				printf("Error: attachment received input of invalid file index %d. Max file index is %d!\n", attachment.FileIndex, files.size() - 1);
 				return false;
 			}
-			if (jointIndex >= joints.size()){
-				printf("Error: attachment received input of invalid joint index %d. Max joint index is %d!\n", jointIndex, joints.size() - 1);
+			if (attachment.JointIndex >= joints.size()){
+				printf("Error: attachment received input of invalid joint index %d. Max joint index is %d!\n", attachment.JointIndex, joints.size() - 1);
+				return false;
+			}
+			if (attachment.TransformIndex >= transpositions.size()){
+				printf("Error: attachment received input of invalid transposition index %d. Max transposition index is %d!\n", attachment.TransformIndex, transpositions.size() - 1);
+				return false;
+			}
+			if (attachment.ColorIndex >= colors.size()){
+				printf("Error: attachment received input of invalidcolor index %d. Max color index is %d!\n", attachment.ColorIndex, colors.size() - 1);
 				return false;
 			}
 
-			if (matches >= 2){ //If we received the file and joint indexes 
-				Joint * joint = &joints[jointIndex];
-				joint->Components.emplace_back();
-
-				AssemblyComponent * newObject = &(joint->Components.back());
-				
-				if (matches >= 3){ //if we also received a transpose index
-					if (transposeIndex >= transpositions.size()){
-						printf("Error: attachment received input of invalid transposition index %d. Max transposition index is %d!\n", transposeIndex, transpositions.size() - 1);
-						return false;
-					}
-
-					newObject->Transpose = transpositions[transposeIndex];
-					printf("Object %d will receive transpose %d for attachment.\n", fileIndex, transposeIndex);
-
-					if (matches >= 4){ // received a color index
-						if (colorIndex >= colors.size()){
-							printf("Error: attachment received input of invalidcolor index %d. Max color index is %d!\n", colorIndex, colors.size() - 1);
-							return false;
-						}
-
-						newObject->Object.SetColor(colors[colorIndex]);
-						printf("Object %d has been given color <%.3f, %.3f, %.3f>.\n", fileIndex, colors[colorIndex][0], colors[colorIndex][1], colors[colorIndex][2]);
-					}
-				}
-
-				if (newObject->Object.LoadFromFile(files[fileIndex]) == false){ //Initialize the sub-object
-					printf("Error: attachment unable to load object from file \"%s\"!\n", files[fileIndex]);
-					return false;
-				}
-
-				printf("Successfully loaded and attached object %d.\n", fileIndex);
-			}
-			else{
-				printf("Error: attachment received invalid number of inputs (%d)!\n", matches);
-				return false;
-			}
+			attachmentInfo.push_back(attachment);
 		}
 		else{
 			// Probably a comment, eat up the rest of the line
 			char stupidBuffer[1000];
 			fgets(stupidBuffer, 1000, file);
 		}
+	}
+
+	//A first pass over the attachments to reserve spots for the components.
+	//Hella necessary because I spent a day trying to figure out a bug resulting from the RenderableObjects being deconstructed when the vector is resized and reallocated.
+	for (int x = 0; x < attachmentInfo.size(); x += 1){
+		AttachmentContainer * attachment = &attachmentInfo[x];
+		Joint * joint = &joints[attachment->JointIndex];
+		joint->Components.reserve(joint->Components.capacity() + 1);
+		printf("Reserved %d attachment slots for Joint %d.\n", joint->Components.capacity(), attachment->JointIndex);
+	}
+
+	for (int x = 0; x < attachmentInfo.size(); x += 1){
+		AttachmentContainer * attachment = &attachmentInfo[x];
+		Joint * joint = &joints[attachment->JointIndex];
+		joint->Components.emplace_back();
+
+		AssemblyComponent * newObject = &(joint->Components.back());
+
+		if (attachment->TransformIndex != -1){ 
+			newObject->Translation = transpositions[attachment->TransformIndex];
+			printf("Object %d will receive transpose %d for attachment.\n", attachment->FileIndex, attachment->TransformIndex);
+		}
+		
+		if (attachment->ColorIndex != -1){
+			newObject->Object.SetColor(colors[attachment->ColorIndex]);
+			printf("Object %d has been given color <%.3f, %.3f, %.3f>.\n", attachment->FileIndex, colors[attachment->ColorIndex][0], colors[attachment->ColorIndex][1], colors[attachment->ColorIndex][2]);
+		}
+
+		newObject->File = files[attachment->FileIndex];
+		if (newObject->Object.LoadFromFile(files[attachment->FileIndex]) == false){ //Initialize the sub-object
+			printf("Error: attachment unable to load object from file \"%s\"!\n", files[attachment->FileIndex]);
+			return false;
+		}
+
+		printf("Successfully loaded and attached object %d.\n", attachment->FileIndex);
 	}
 
 	return true;
@@ -255,8 +273,9 @@ bool AssembledObject::LoadObject(std::string filepath, std::vector<Vertex> & ver
 	return true;
 }
 
-void AssembledObject::Render(){
-	for (int x = 0; x < this->ObjectStructure.size(); x += 1){
+void AssembledObject::Render(RenderData renderData){
+	this->RenderRecurse(this->RootJoint, renderData);
+	/*for (int x = 0; x < this->ObjectStructure.size(); x += 1){
 		this->ObjectStructure[x].InRenderQueue = false;
 	}
 
@@ -282,5 +301,23 @@ void AssembledObject::Render(){
 				currentJoint->Bones[x]->InRenderQueue = true;
 			}
 		}
+	}*/
+}
+
+void AssembledObject::RenderRecurse(Joint * renderJoint, RenderData data){
+	glm::mat4 modelMatrix = renderJoint->SubModelMatrixTransform * *data.ModelMatrix;
+	for (int x = 0; x < renderJoint->Components.size(); x += 1){
+		AssemblyComponent * component = &renderJoint->Components[x];
+		glm::mat4 componentModelMatrix = modelMatrix * glm::translate(component->Translation);
+
+		RenderData subData(data);
+		subData.ModelMatrix = &componentModelMatrix;
+
+		component->Object.Render(subData);
+	}
+
+	data.ModelMatrix = &modelMatrix;
+	for (int x = 0; x < renderJoint->Bones.size(); x += 1){
+		this->RenderRecurse(renderJoint->Bones[x], data);
 	}
 }
