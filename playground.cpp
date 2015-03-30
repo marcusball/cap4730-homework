@@ -32,6 +32,7 @@ using namespace glm;
 #include "AxisObject.h"
 #include "LoadedObject.h"
 #include "AssembledObject.h"
+#include "ControlInterceptor.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -60,6 +61,7 @@ GLFWwindow * Window;
 std::string GUIMessage;
 std::array<bool,350> PressedKeys;
 std::queue<RenderableObject *> RenderQueue;
+std::vector<ControlInterceptor *> ControlHooks;
 
 GLuint ProgramID;
 GLuint PickingProgramID;
@@ -106,6 +108,8 @@ int main(){
 
 	DisplayModel = new AssembledObject();
 	DisplayModel->LoadFromFile("models/model.objc");
+
+	ControlHooks.push_back(DisplayModel);
 
 	//Perform the main render loop
 	double lastTime = glfwGetTime();
@@ -275,6 +279,13 @@ void RenderScene(){
 static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods){
 	//What to do for single key presses
 	if (key == -1){ return; }
+
+	for (int x = 0; x < ControlHooks.size(); x += 1){
+		if (ControlHooks[x]->KeyCallback(key, scancode, action, mods)){
+			PressedKeys[key] = false;
+			return;
+		}
+	}
 
 	if (action == GLFW_PRESS) {
 		PressedKeys[key] = true;

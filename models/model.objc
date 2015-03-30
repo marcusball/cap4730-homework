@@ -55,3 +55,14 @@ ta 2 2 3 y
 ta 4 4 5 y
 ta 6 6
 ta 5 7 
+
+ks 49 0
+ks 50 1
+ks 51 2
+ks 52 4
+ks 53 5
+kd 0 z x 0
+kd 1 R 0 0
+kd 2 0 w 0
+kd 4 0 W 0
+kd 5 p w r

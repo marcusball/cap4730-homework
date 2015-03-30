@@ -1,4 +1,8 @@
 #include "AssembledObject.h"
+
+#include <GL/glew.h> //Apparently this needs to be before gl.h, and glfw.h. Queen bee of the OpenGL Plastics.
+#include <glfw3.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
@@ -22,6 +26,9 @@ void AssembledObject::Clear(){
 
 	this->RootJoint = nullptr;
 	this->ObjectStructure.clear();
+	this->SelectedComponent = nullptr;
+	this->SelectBindings.clear();
+	this->MovementBindings.clear();
 }
 
 bool AssembledObject::LoadFromFile(std::string filename){
@@ -33,7 +40,7 @@ bool AssembledObject::LoadFromFile(std::string filename){
 
 	glGenBuffers(objectBuffers.size(), &objectBuffers[0]);*/
 
-	if (AssembledObject::LoadObjectCombination(filename.c_str(), this->ObjectStructure) == false){
+	if (AssembledObject::LoadObjectCombination(filename.c_str(), this->ObjectStructure, this->SelectBindings, this->MovementBindings) == false){
 		return false; //Something went horribly wrong
 	}
 	this->RootJoint = &this->ObjectStructure[0];
@@ -43,7 +50,7 @@ bool AssembledObject::LoadFromFile(std::string filename){
 	return true;
 }
 
-bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Joint> & joints){
+bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Joint> & joints, std::vector<SelectKeyBinding> & keyBindings, std::vector<DirectionKeyBinding> & moveKeyBindings){
 	std::vector<std::string> files;
 	//std::vector<Joint> joints;
 	std::vector<Vector4f> colors;
@@ -90,7 +97,7 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 			
 			Joint newJoint;
 			newJoint.Position = position;
-			newJoint.SubModelMatrixTransform = glm::translate(glm::vec3(position));
+			newJoint.Translation = glm::translate(glm::vec3(position));
 			joints.push_back(newJoint);
 
 			Joint * debug = &joints[joints.size() - 1]; //Pointer to the newly inserted joint
@@ -173,6 +180,28 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 
 			attachmentTransforms.push_back(attachmentTransform);
 		}
+		else if (strcmp(lineHeader, "ks") == 0){
+			SelectKeyBinding keyBinding;
+			fscanf(file, "%u %d\n", &keyBinding.KeyId, &keyBinding.FileIndex);
+
+			if (keyBinding.FileIndex >= files.size()){
+				printf("Error: selection key binding received input of invalid file index %d. Max file index is %d!\n", keyBinding.FileIndex, files.size() - 1);
+				return false;
+			}
+
+			keyBindings.push_back(keyBinding);
+		}
+		else if (strcmp(lineHeader, "kd") == 0){
+			DirectionKeyBinding keyBinding;
+			fscanf(file, "%d %c %c %c\n", &keyBinding.FileIndex, &keyBinding.LeftRightMovement, &keyBinding.UpDownMovement, &keyBinding.ShiftLeftRightMovement);
+
+			if (keyBinding.FileIndex >= files.size()){
+				printf("Error: selection key binding received input of invalid file index %d. Max file index is %d!\n", keyBinding.FileIndex, files.size() - 1);
+				return false;
+			}
+
+			moveKeyBindings.push_back(keyBinding);
+		}
 		else{
 			// Probably a comment, eat up the rest of the line
 			char stupidBuffer[1000];
@@ -199,6 +228,7 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 		newObject->AttachedTo = joint;
 
 		if (attachment->ColorIndex != -1){
+			newObject->Color = colors[attachment->ColorIndex];
 			newObject->Object.SetColor(colors[attachment->ColorIndex]);
 			printf("Object %d has been given color <%.3f, %.3f, %.3f>.\n", attachment->FileIndex, colors[attachment->ColorIndex][0], colors[attachment->ColorIndex][1], colors[attachment->ColorIndex][2]);
 		}
@@ -210,6 +240,28 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 		}
 
 		printf("Successfully loaded and attached object %d.\n", attachment->FileIndex);
+	}
+
+	//Bind the keys to their respective objects
+	for (int x = 0; x < keyBindings.size(); x += 1){
+		if (keyBindings[x].FileIndex < fileComponents.size()){
+			keyBindings[x].BoundComponent = fileComponents[keyBindings[x].FileIndex];
+			printf("Saving binding of key %d to %s.\n", keyBindings[x].KeyId, keyBindings[x].BoundComponent->File.c_str());
+		}
+		else{
+			printf("Error binding keys: file index %d is invalid!\n", keyBindings[x].FileIndex);
+		}
+	}
+
+	//Bind the keys to their respective objects
+	for (int x = 0; x < moveKeyBindings.size(); x += 1){
+		if (moveKeyBindings[x].FileIndex < fileComponents.size()){
+			moveKeyBindings[x].BoundComponent = fileComponents[moveKeyBindings[x].FileIndex];
+			printf("Saving binding of movement keys for %s.\n", moveKeyBindings[x].BoundComponent->File.c_str());
+		}
+		else{
+			printf("Error binding movement keys: file index %d is invalid!\n", moveKeyBindings[x].FileIndex);
+		}
 	}
 
 	for (int x = 0; x < attachmentTransforms.size(); x += 1){
@@ -337,19 +389,121 @@ void AssembledObject::Render(RenderData renderData){
 }
 
 void AssembledObject::RenderRecurse(Joint * renderJoint, RenderData data){
-	glm::mat4 modelMatrix = renderJoint->SubModelMatrixTransform * *data.ModelMatrix;
+	//glm::mat4 modelMatrix = *data.ModelMatrix * renderJoint->SubModelMatrixTransform;
 	for (int x = 0; x < renderJoint->Components.size(); x += 1){
 		AssemblyComponent * component = &renderJoint->Components[x];
-		glm::mat4 componentModelMatrix = modelMatrix * component->Transform;
+		glm::mat4 componentModelMatrix = *data.ModelMatrix * renderJoint->Translation * renderJoint->Rotation * component->Transform;
 
 		RenderData subData(data);
 		subData.ModelMatrix = &componentModelMatrix;
 
 		component->Object.Render(subData);
 	}
-
+	glm::mat4 modelMatrix = *data.ModelMatrix *  renderJoint->Translation * renderJoint->Rotation;
 	data.ModelMatrix = &modelMatrix;
 	for (int x = 0; x < renderJoint->Bones.size(); x += 1){
 		this->RenderRecurse(renderJoint->Bones[x], data);
 	}
+}
+
+bool AssembledObject::KeyCallback(int key, int scancode, int action, int mods){
+	if (action == GLFW_PRESS){
+		if (key == GLFW_KEY_0){
+			this->SelectedComponent = nullptr;
+			return false;
+		}
+		for (int x = 0; x < this->SelectBindings.size(); x += 1){
+			if (key == this->SelectBindings[x].KeyId){
+				if (this->SelectedComponent != nullptr){
+					this->SelectedComponent->Object.SetColor(this->SelectedComponent->Color); //Set the color back to the original color
+					this->SelectedComponent->Object.LoadFromFile(this->SelectedComponent->File); //Reload the object information
+				}
+
+				this->SelectedComponent = this->SelectBindings[x].BoundComponent;
+				printf("Selected component %s.\n", this->SelectedComponent->File.c_str());
+
+				this->SelectedComponent->Object.SetColor(ColorVectors::ORANGE); //Set the color to the new color
+				this->SelectedComponent->Object.LoadFromFile(this->SelectedComponent->File); //Reload the object
+				return true;
+			}
+		}
+	}
+	if (action == GLFW_REPEAT){
+		if (this->SelectedComponent != nullptr){
+			for (int x = 0; x < this->MovementBindings.size(); x += 1){
+				if (this->MovementBindings[x].BoundComponent != this->SelectedComponent){ continue; }
+
+				float moveModifier = 1.f;
+				bool leftRight = false;
+				bool upDown = false;
+				switch (key){
+					case GLFW_KEY_LEFT:
+					case GLFW_KEY_A: {
+						moveModifier = -1.f;
+						leftRight = true;
+						break;
+					}
+					case GLFW_KEY_RIGHT:
+					case GLFW_KEY_D: {
+						moveModifier = 1.f;
+						leftRight = true;
+						break;
+					}
+					case GLFW_KEY_DOWN:
+					case GLFW_KEY_S:{
+						moveModifier = -1.f;
+						upDown = true;
+						break;
+					}
+					case GLFW_KEY_UP:
+					case GLFW_KEY_W:{
+						moveModifier = 1.f;
+						upDown = true;
+						break;
+					}
+					default: {
+						continue;
+					}
+				}
+
+				Joint * toMove = this->SelectedComponent->AttachedTo;
+				Axis movementAxis = Axis::None;
+				if (leftRight){
+					if (mods == GLFW_MOD_SHIFT){
+						movementAxis = this->MovementBindings[x].ShiftLeftRightMovement;
+					}
+					else{
+						movementAxis = this->MovementBindings[x].LeftRightMovement;
+					}
+				}
+				if (upDown){
+					movementAxis = this->MovementBindings[x].UpDownMovement;
+				}
+
+				switch (AxisType::GetType(movementAxis)){
+					case AxisType::Translational:{
+						glm::mat4 movement = glm::translate(moveModifier * 0.1f * AxisVector::FromAxis(movementAxis));
+						toMove->Translation = movement * toMove->Translation;
+						break;
+					}
+					case AxisType::Rotational:{
+						glm::vec3 rotationAxis = AxisVector::FromAxis(movementAxis);
+						glm::mat4 rotation = glm::rotate(moveModifier * 2.f, rotationAxis);
+						if (AxisType::IsWorldAxis(movementAxis)){
+							toMove->Rotation = rotation * toMove->Rotation;
+						}
+						else{
+							toMove->Rotation = toMove->Rotation * rotation;
+						}
+						break;
+					}
+				}
+				return true;
+			}
+		}
+	}
+	return false;
+}
+bool AssembledObject::MouseCallback(int button, int action, int mods){
+	return false;
 }
