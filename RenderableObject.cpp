@@ -56,10 +56,10 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, colors[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
 
-	/*glBindBuffer(GL_ARRAY_BUFFER, objectBuffers[NORMAL_VB]);
+	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[NORMAL_VB]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(normals[0]) * normals.size(), &normals[0], GL_STATIC_DRAW);
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, normals[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);*/
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, normals[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->objectBuffers[INDEX_VB]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof((*indices)[0]) * indices->size(), &(*indices)[0], GL_STATIC_DRAW);

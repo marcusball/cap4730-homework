@@ -4,17 +4,20 @@
 layout(location = 1) in vec4 vertexPosition_modelspace;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in float vertexSize;
+layout(location = 4) in vec4 vertexNormal;
 
 out vec4 vs_vertexColor;
 out vec3 Position_worldspace;
 out vec3 Normal_cameraspace;
 out vec3 EyeDirection_cameraspace;
-out vec3 LightDirection_cameraspace;
+out vec3 Light1Direction_cameraspace;
+out vec3 Light2Direction_cameraspace;
 
 uniform mat4 ViewMatrix;
 uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
-uniform vec3 LightPosition_worldspace;
+uniform vec3 Light1Position_worldspace;
+uniform vec3 Light2Position_worldspace;
 
 void main(){
 	gl_PointSize = vertexSize;
@@ -31,11 +34,13 @@ void main(){
 	EyeDirection_cameraspace = vec3(0,0,0) - vertexPosition_cameraspace;
 
 	// Vector that goes from the vertex to the light, in camera space. M is ommited because it's identity.
-	vec3 LightPosition_cameraspace = ( ViewMatrix * vec4(LightPosition_worldspace,1)).xyz;
-	LightDirection_cameraspace = LightPosition_cameraspace + EyeDirection_cameraspace;
+	vec3 Light1Position_cameraspace = ( ViewMatrix * vec4(Light1Position_worldspace,1)).xyz;
+	vec3 Light2Position_cameraspace = ( ViewMatrix * vec4(Light2Position_worldspace,1)).xyz;
+	Light1Direction_cameraspace = Light1Position_cameraspace + EyeDirection_cameraspace;
+	Light2Direction_cameraspace = Light2Position_cameraspace + EyeDirection_cameraspace;
 	
 	// Normal of the the vertex, in camera space
-	Normal_cameraspace = ( ViewMatrix * ModelMatrix * vec4(1.0)).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
+	Normal_cameraspace = ( ViewMatrix * ModelMatrix * vertexNormal).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
 	
 	// UV of the vertex. No special space for this one.
 	vs_vertexColor = vertexColor;
