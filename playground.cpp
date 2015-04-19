@@ -248,9 +248,9 @@ void RenderScene(){
 		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-		glm::vec3 lightPos1 = glm::vec3(2.5, 5, 0);
+		glm::vec3 lightPos1 = glm::vec3(-5, 5, 5);
 		glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
-		glm::vec3 lightPos2 = glm::vec3(0, 5, 2.5);
+		glm::vec3 lightPos2 = glm::vec3(5, 5, 5);
 		glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
 
 		RenderData renderData;

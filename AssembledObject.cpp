@@ -154,8 +154,8 @@ bool AssembledObject::LoadObjectCombination(std::string filepath, std::vector<Jo
 				printf("Error: attachment received input of invalid joint index %d. Max joint index is %d!\n", attachment.JointIndex, joints.size() - 1);
 				return false;
 			}
-			if (attachment.ColorIndex >= colors.size()){
-				printf("Error: attachment received input of invalidcolor index %d. Max color index is %d!\n", attachment.ColorIndex, colors.size() - 1);
+			if (attachment.ColorIndex >= colors.size() && attachment.ColorIndex != -1){
+				printf("Error: attachment received input of invalid color index %d. Max color index is %d!\n", attachment.ColorIndex, colors.size() - 1);
 				return false;
 			}
 

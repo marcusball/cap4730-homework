@@ -66,6 +66,6 @@ void main(){
 		0.5 * MaterialDiffuseColor * LightColor * LightPower * cosTheta1 / pow(distance1,2) +
 		0.5 * MaterialDiffuseColor * LightColor * LightPower * cosTheta2 / pow(distance2,2) +
 		// Specular : reflective highlight, like a mirror
-		0.5 * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha1,5) / pow(distance1,2) + 
-		0.5 * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha2,5) / pow(distance2,2);	
+		1.f * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha1,5) / pow(distance1,2) + 
+		1.f * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha2,5) / pow(distance2,2);	
 }
