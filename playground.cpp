@@ -73,8 +73,7 @@ GLuint ProjectionMatrixID;
 GLuint PickingMatrixID;
 GLuint ViewMatrixID;
 GLuint ModelMatrixID;
-GLuint LightID1;
-GLuint LightID2;
+GLuint LightID;
 
 bool CameraFlipped = false;
 
@@ -219,8 +218,7 @@ bool InitializeOpenGL(){
 	//PickingMatrixID = glGetUniformLocation(PickingProgramID, "MVP");
 
 	// Get a handle for our "LightPosition" uniform
-	LightID1 = glGetUniformLocation(ProgramID, "Light1Position_worldspace");
-	LightID2 = glGetUniformLocation(ProgramID, "Light2Position_worldspace");
+	LightID = glGetUniformLocation(ProgramID, "LightPosition_worldspace");
 
 	return true;
 }
@@ -248,10 +246,8 @@ void RenderScene(){
 		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-		glm::vec3 lightPos1 = glm::vec3(2.5, 5, 0);
-		glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
-		glm::vec3 lightPos2 = glm::vec3(0, 5, 2.5);
-		glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
+		glm::vec3 lightPos = glm::vec3(4, 4, 4);
+		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 
 		RenderData renderData;
 		renderData.ModelMatrix = &modelMatrix;
