@@ -61,7 +61,7 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 			float s = (float)x / (float)(pointsPerSide * 10.f);
 			float t = (float)y / (float)(pointsPerSide * 10.f);
 			//if (s > 1.f || t > 1.f){
-				printf("<%.3f, %.3f>\n", s, t);
+				//printf("<%.3f, %.3f>\n", s, t);
 			//}
 			vtx->Texture = Vector2f(s, t);
 		}

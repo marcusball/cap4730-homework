@@ -23,7 +23,7 @@ void main(){
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(1,1,0.8);
-	float LightPower = 120.0f;
+	float LightPower = 120.0;
 	
 	// Material properties
 	vec3 DiffuseColor = vec3(1,1,1);
@@ -33,7 +33,7 @@ void main(){
 	float light2DiffuseIntensity = 0.5;
 	float light1SpecularIntensity = 0.5;
 	float light2SpecularIntensity = 0.5;
-	float SpecularPower = 0.7f;
+	float SpecularPower = 0.7;
 
 	// Distance to the light
 	float distance1 = length( Light1Position_worldspace - Position_worldspace );
@@ -90,7 +90,7 @@ void main(){
 	}
 
 	vec2 texc = TexCoord0.st;
-	vec4 textureColor = texture2D(gSampler, texc);
+	vec4 textureColor = texture(gSampler, texc);
 	if(texc == vec2(0,0)){
 		texc = vec2(1,1);
 	}
