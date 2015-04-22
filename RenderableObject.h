@@ -43,7 +43,7 @@ protected:
 #define TEXTURE_COORD_VB 4
 #define SIZE_VB 5
 
-	void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
+	virtual void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
 
 	bool isInit = false;
 

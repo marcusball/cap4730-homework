@@ -34,18 +34,22 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 	//glGenBuffers(this->objectBuffers.size(), &this->objectBuffers[0]);
 
 
+
 	std::vector<Vector4f> positions;
 	std::vector<Vector4f> colors;
 	std::vector<Vector4f> normals;
+	std::vector<glm::vec2> textures;
 	std::vector<float> sizes;
 
 	positions.reserve(vertices->size());
 	normals.reserve(vertices->size());
 	sizes.reserve(vertices->size());
 	for (int x = 0; x < vertices->size(); x += 1){
-		positions.push_back((*vertices)[x].Position);
-		colors.push_back((*vertices)[x].Color);
-		normals.push_back((*vertices)[x].Normal);
+		const Vertex * vtx = &(*vertices)[x];
+		positions.push_back(vtx->Position);
+		colors.push_back(vtx->Color);
+		normals.push_back(vtx->Normal);
+		textures.push_back(glm::vec2(vtx->Position[0], vtx->Position[1]));
 		sizes.push_back((*vertices)[x].Size);
 	}
 
@@ -68,6 +72,11 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 	glBufferData(GL_ARRAY_BUFFER, sizeof(normals[0]) * normals.size(), &normals[0], GL_STATIC_DRAW);
 	glEnableVertexAttribArray(4);
 	glVertexAttribPointer(4, normals[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
+
+	/*glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[TEXTURE_COORD_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(textures[0]) * textures.size(), &textures[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(5);
+	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, 0, 0);*/
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->objectBuffers[INDEX_VB]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof((*indices)[0]) * indices->size(), &(*indices)[0], GL_STATIC_DRAW);

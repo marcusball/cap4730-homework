@@ -14,6 +14,7 @@ public:
 	Vector4f Position;
 	Vector4f Color;
 	Vector3f Normal;
+	Vector2f Texture;
 	float Size = 1.f;
 };
 

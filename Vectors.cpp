@@ -92,3 +92,50 @@ float & Vector3f::operator[](int index){
 const float & Vector3f::operator[](int index) const{
 	return this->value[index];
 }
+
+
+
+Vector2f::Vector2f() : Vector2f(0, 0){};
+
+Vector2f::Vector2f(float x, float y){
+	this->value = { { x, y } };
+}
+
+Vector2f Vector2f::operator =(const Vector2f& a){
+	if (&a == this){
+		return *this;
+	}
+
+	this->value = a.value;
+
+	return *this;
+}
+
+Vector2f Vector2f::operator =(const float* a){
+	this->value = { { a[0], a[1] } };
+
+	return *this;
+}
+
+Vector2f Vector2f::operator -(const Vector2f& a)const {
+	return Vector2f(this->value[0] - a.value[0], this->value[1] - a.value[1]);
+}
+Vector2f Vector2f::operator +(const Vector2f& a)const {
+	return Vector2f(this->value[0] + a.value[0], this->value[1] + a.value[1]);
+}
+Vector2f Vector2f::operator *(const float& a) const {
+	return Vector2f(this->value[0] * a, this->value[1] * a);
+}
+Vector2f Vector2f::operator /(const float& a)const {
+	return Vector2f(this->value[0] / a, this->value[1] / a);
+}
+
+/*float operator[](const int index) const{
+return this->value[index];
+}*/
+float & Vector2f::operator[](int index){
+	return this->value[index];
+}
+const float & Vector2f::operator[](int index) const{
+	return this->value[index];
+}

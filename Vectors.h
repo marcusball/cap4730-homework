@@ -1,6 +1,28 @@
 #pragma once
 #include <array>
 
+class Vector2f{
+public:
+	Vector2f();
+
+	Vector2f(float x, float y);
+
+	Vector2f operator =(const Vector2f& a);
+
+	Vector2f operator =(const float* a);
+
+	std::array<float, 2> value;
+
+
+	Vector2f operator -(const Vector2f& a) const;
+	Vector2f operator +(const Vector2f& a) const;
+	Vector2f operator *(const float& a) const;
+	Vector2f operator /(const float& a) const;
+
+	float & operator[](int index);
+	const float & operator[](int index) const;
+};
+
 class Vector3f{
 public:
 	Vector3f();

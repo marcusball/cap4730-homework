@@ -21,10 +21,13 @@ public:
 	virtual void Render(RenderData renderData);
 
 private:
+
+	virtual void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
+
 	/*
 	* Generate all of the necessary verticies and data to display the grid.
 	*/
-	void GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & pointIndexCount, int & lineIndexCount);
+	void GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & pointIndexCount, int & lineIndexCount, int & triangleIndexCount);
 
 	static int GetNeighborIndex(int currentIndex, int horizontalLength, int verticalLength, int direction);
 
@@ -32,5 +35,8 @@ private:
 
 	int pointVertexCount;
 	int lineVertexCount;
+	int triangleVertexCount;
+
+	GLuint textureObject;
 };
 

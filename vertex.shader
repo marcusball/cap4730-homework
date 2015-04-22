@@ -5,6 +5,7 @@ layout(location = 1) in vec4 vertexPosition_modelspace;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in float vertexSize;
 layout(location = 4) in vec4 vertexNormal;
+layout(location = 5) in vec2 vertexTextureCoord;
 
 out vec4 vs_vertexColor;
 out vec3 Position_worldspace;
@@ -12,6 +13,7 @@ out vec3 Normal_cameraspace;
 out vec3 EyeDirection_cameraspace;
 out vec3 Light1Direction_cameraspace;
 out vec3 Light2Direction_cameraspace;
+out vec2 TexCoord0;
 
 uniform mat4 ViewMatrix;
 uniform mat4 ModelMatrix;
@@ -44,5 +46,7 @@ void main(){
 	
 	// UV of the vertex. No special space for this one.
 	vs_vertexColor = vertexColor;
+
+	TexCoord0 = vertexTextureCoord;
 }
 

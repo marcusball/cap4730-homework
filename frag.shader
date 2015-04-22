@@ -8,6 +8,7 @@ in vec3 Normal_cameraspace;
 in vec3 EyeDirection_cameraspace;
 in vec3 Light1Direction_cameraspace;
 in vec3 Light2Direction_cameraspace;
+in vec2 TexCoord0;
 
 // Ouput data
 out vec3 color;
@@ -16,6 +17,7 @@ out vec3 color;
 uniform mat4 MV;
 uniform vec3 Light1Position_worldspace;
 uniform vec3 Light2Position_worldspace;
+uniform sampler2D gSampler;
 
 void main(){
 	// Light emission properties
@@ -87,7 +89,13 @@ void main(){
 		colorSum += specularColor2;
 	}
 
-	color = vs_vertexColor.xyz * colorSum;
+	vec2 texc = TexCoord0.st;
+	vec4 textureColor = texture2D(gSampler, texc);
+	if(texc == vec2(0,0)){
+		texc = vec2(1,1);
+	}
+	color = vec3(texc,1) * vs_vertexColor.xyz;
+	//color = textureColor.rgb * vs_vertexColor.xyz * colorSum;
 		// Ambient : simulates indirect lighting
 		//MaterialAmbientColor +
 		// Diffuse : "color" of the object
