@@ -33,6 +33,7 @@ using namespace glm;
 #include "LoadedObject.h"
 #include "AssembledObject.h"
 #include "ControlInterceptor.h"
+#include "MeshObject.h"
 
 // Function prototypes
 bool InitializeWindow();
@@ -110,6 +111,9 @@ int main(){
 	DisplayModel = new AssembledObject();
 	DisplayModel->LoadFromFile("models/model.objc");
 
+	MeshObject testMesh = MeshObject();
+	testMesh.Init(10);
+
 	ControlHooks.push_back(DisplayModel);
 
 	//Perform the main render loop
@@ -136,6 +140,7 @@ int main(){
 		RenderQueue.push(&testGrid);
 		//RenderQueue.push_back(&testObject);
 		RenderQueue.push(DisplayModel);
+		RenderQueue.push(&testMesh);
 
 		// DRAWING POINTS
 		RenderScene();
@@ -248,9 +253,9 @@ void RenderScene(){
 		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-		glm::vec3 lightPos1 = glm::vec3(-5, 5, 5);
+		glm::vec3 lightPos1 = glm::vec3(-5, 5, -5);
 		glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
-		glm::vec3 lightPos2 = glm::vec3(5, 5, 5);
+		glm::vec3 lightPos2 = glm::vec3(5, 5, -5);
 		glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
 
 		RenderData renderData;

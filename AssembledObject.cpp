@@ -384,6 +384,9 @@ bool AssembledObject::LoadObject(std::string filepath, std::vector<Vertex> & ver
 
 void AssembledObject::Render(RenderData renderData){
 	if (this->RootJoint == nullptr){ return;  }
+	if (this->hide){
+		return;
+	}
 
 	this->RenderRecurse(this->RootJoint, renderData);
 }
@@ -410,6 +413,10 @@ bool AssembledObject::KeyCallback(int key, int scancode, int action, int mods){
 	if (action == GLFW_PRESS){
 		if (key == GLFW_KEY_0){
 			this->SelectedComponent = nullptr;
+			return false;
+		}
+		if (key == GLFW_KEY_F){
+			this->hide = !hide;
 			return false;
 		}
 		for (int x = 0; x < this->SelectBindings.size(); x += 1){

@@ -24,9 +24,14 @@ void main(){
 	float LightPower = 120.0f;
 	
 	// Material properties
-	vec3 MaterialDiffuseColor = vs_vertexColor.rgb;
-	vec3 MaterialAmbientColor = vec3(0.2,0.2,0.2) * MaterialDiffuseColor;
-	vec3 MaterialSpecularColor = MaterialDiffuseColor * 0.1;
+	vec3 DiffuseColor = vec3(1,1,1);
+	vec3 AmbientColor = vec3(0.2,0.2,0.2) * DiffuseColor;
+	vec3 SpecularColor = DiffuseColor * 0.1;
+	float light1DiffuseIntensity = 0.5;
+	float light2DiffuseIntensity = 0.5;
+	float light1SpecularIntensity = 0.5;
+	float light2SpecularIntensity = 0.5;
+	float SpecularPower = 0.7f;
 
 	// Distance to the light
 	float distance1 = length( Light1Position_worldspace - Position_worldspace );
@@ -42,30 +47,53 @@ void main(){
 	//  - light is at the vertical of the triangle -> 1
 	//  - light is perpendicular to the triangle -> 0
 	//  - light is behind the triangle -> 0
-	float cosTheta1 = clamp( dot( n,l1 ), 0,1 );
-	float cosTheta2 = clamp( dot( n,l2 ), 0,1 );
+	float diffuseFactor1 = dot( n,l1 );
+	float diffuseFactor2 = dot( n,l2 );
 	
 	// Eye vector (towards the camera)
 	vec3 E = normalize(EyeDirection_cameraspace);
 	// Direction in which the triangle reflects the light
-	vec3 R1 = reflect(-l1,n);
-	vec3 R2 = reflect(-l2,n);
+	vec3 R1 = reflect(l1,n);
+	vec3 R2 = reflect(l2,n);
 	// Cosine of the angle between the Eye vector and the Reflect vector,
 	// clamped to 0
 	//  - Looking into the reflection -> 1
 	//  - Looking elsewhere -> < 1
-	float cosAlpha1 = clamp( dot( E,R1 ), 0,1 );
-	float cosAlpha2 = clamp( dot( E,R2 ), 0,1 );
+	float specularFactor1 = dot( E,-R1 );
+	float specularFactor2 = dot( E,-R2 );
 	
 	//color = vs_vertexColor.rgb;
 	
-	color = 
+	vec3 colorSum = vec3(0,0,0);
+	colorSum += AmbientColor;
+
+	if(diffuseFactor1 > 0){
+		vec3 diffuseColor1 = DiffuseColor * light1DiffuseIntensity * diffuseFactor1;
+		colorSum = colorSum + diffuseColor1;
+	}
+	if(diffuseFactor2 > 0){
+		vec3 diffuseColor2 = DiffuseColor * light2DiffuseIntensity * diffuseFactor2;
+		colorSum = colorSum + diffuseColor2;
+	}
+
+	specularFactor1 = pow(specularFactor1, SpecularPower);
+	specularFactor2 = pow(specularFactor2, SpecularPower);
+	if(specularFactor1 > 0){
+		vec3 specularColor1 = SpecularColor * light1SpecularIntensity * specularFactor1;
+		colorSum += specularColor1;
+	}
+	if(specularFactor2 > 0){
+		vec3 specularColor2 = SpecularColor * light2SpecularIntensity * specularFactor2;
+		colorSum += specularColor2;
+	}
+
+	color = vs_vertexColor.xyz * colorSum;
 		// Ambient : simulates indirect lighting
-		MaterialAmbientColor +
+		//MaterialAmbientColor +
 		// Diffuse : "color" of the object
-		0.5 * MaterialDiffuseColor * LightColor * LightPower * cosTheta1 / pow(distance1,2) +
-		0.5 * MaterialDiffuseColor * LightColor * LightPower * cosTheta2 / pow(distance2,2) +
+		//1.f * MaterialDiffuseColor * LightColor * LightPower * diffuseFactor1 / pow(distance1,2) +
+		//1.f * MaterialDiffuseColor * LightColor * LightPower * diffuseFactor2 / pow(distance2,2) +
 		// Specular : reflective highlight, like a mirror
-		1.f * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha1,5) / pow(distance1,2) + 
-		1.f * MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha2,5) / pow(distance2,2);	
+		//1.f * MaterialSpecularColor * LightColor * LightPower * pow(diffuseFactor1,1) / pow(distance1,2) + 
+		//1.f * MaterialSpecularColor * LightColor * LightPower * pow(diffuseFactor2,1) / pow(distance2,2);	
 }

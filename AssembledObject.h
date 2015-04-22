@@ -106,4 +106,6 @@ private:
 	AssemblyComponent * SelectedComponent;
 
 	void RenderRecurse(Joint * renderJoint, RenderData data);
+
+	bool hide = false;
 };
