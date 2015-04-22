@@ -58,8 +58,8 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 			vtx->Normal = Vector3f(0.f, 1.f, 0.f);
 			vtx->Size = 5.f;
 
-			float s = (float)x / (float)(pointsPerSide * 10.f);
-			float t = (float)y / (float)(pointsPerSide * 10.f);
+			float s = (float)x / (float)pointsPerSide;
+			float t = (float)y / (float)pointsPerSide;
 			//if (s > 1.f || t > 1.f){
 				//printf("<%.3f, %.3f>\n", s, t);
 			//}
@@ -194,7 +194,7 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 	std::vector<Vector4f> positions;
 	std::vector<Vector4f> colors;
 	std::vector<Vector4f> normals;
-	std::vector<glm::vec2> textures;
+	std::vector<Vector2f> textures;
 	std::vector<float> sizes;
 
 	positions.reserve(vertices->size());
@@ -205,7 +205,7 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 		positions.push_back(vtx->Position);
 		colors.push_back(vtx->Color);
 		normals.push_back(vtx->Normal);
-		textures.push_back(glm::vec2(vtx->Position[0], vtx->Position[1]));
+		textures.push_back(vtx->Texture);
 		sizes.push_back((*vertices)[x].Size);
 	}
 
@@ -232,7 +232,7 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[TEXTURE_COORD_VB]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(textures[0]) * textures.size(), &textures[0], GL_STATIC_DRAW);
 	glEnableVertexAttribArray(5);
-	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(5, textures[0].value.size(), GL_FLOAT, GL_FALSE, 0, 0);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, this->textureObject);

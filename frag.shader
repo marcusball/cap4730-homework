@@ -92,8 +92,14 @@ void main(){
 	vec2 texc = TexCoord0.st;
 	vec4 textureColor = texture(gSampler, texc);
 	if(texc == vec2(0,0)){
-		texc = vec2(1,1);
+		texc = vec2(0.5,0.5);
 	}
+	/*if(texc.x > 0.9){
+		texc.x = 0;
+	}
+	if(texc.y > 0.9){
+		texc.y = 0;
+	}*/
 	color = vec3(texc,1) * vs_vertexColor.xyz;
 	//color = textureColor.rgb * vs_vertexColor.xyz * colorSum;
 		// Ambient : simulates indirect lighting
