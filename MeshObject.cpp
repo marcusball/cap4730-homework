@@ -50,20 +50,24 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 
 	float hos = sideLength / 2.f;
 
-	outVertices.resize(vertexCount);
+	//Multiplied by two so the first set of vertexCount vertices will be colored, pickable points
+	//The second half will be white with texture coordinates
+	outVertices.resize(vertexCount * 2);
 	for (int x = 0; x < pointsPerSide; x += 1){
 		for (int y = 0; y < pointsPerSide; y += 1){
 			Vertex * vtx = &outVertices[x * pointsPerSide + y];
 			vtx->Position = Vector4f(5, y * distanceDelta, -1 * hos + x * distanceDelta, 1.f);
 			vtx->Normal = Vector3f(0.f, 1.f, 0.f);
 			vtx->Size = 5.f;
+			vtx->Color = ColorVectors::GREEN;
 
+			Vertex * ivtx = &outVertices[(x * pointsPerSide + y) + vertexCount]; //A vertex on which the image will be projected
 			float s = (float)x / (float)pointsPerSide;
 			float t = (float)y / (float)pointsPerSide;
-			//if (s > 1.f || t > 1.f){
-				//printf("<%.3f, %.3f>\n", s, t);
-			//}
-			vtx->Texture = Vector2f(s, t);
+			
+			ivtx->Position = Vector4f(5, y * distanceDelta, -1 * hos + x * distanceDelta, 1.f);
+			ivtx->Normal = Vector3f(0.f, 1.f, 0.f);
+			ivtx->Texture = Vector2f(s, t);
 		}
 	}
 
@@ -114,13 +118,13 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 		int downRightVertexIndex = MeshObject::GetNeighborIndex(x, pointsPerSide, pointsPerSide, 2);
 
 		if (rightVertexIndex != -1 && downVertexIndex != -1 && downRightVertexIndex != -1){
-			outIndices[outIndex + localIndexShift++] = x;
-			outIndices[outIndex + localIndexShift++] = rightVertexIndex;
-			outIndices[outIndex + localIndexShift++] = downVertexIndex;
+			outIndices[outIndex + localIndexShift++] = vertexCount + x;
+			outIndices[outIndex + localIndexShift++] = vertexCount + rightVertexIndex;
+			outIndices[outIndex + localIndexShift++] = vertexCount + downVertexIndex;
 
-			outIndices[outIndex + localIndexShift++] = rightVertexIndex;
-			outIndices[outIndex + localIndexShift++] = downRightVertexIndex;
-			outIndices[outIndex + localIndexShift++] = downVertexIndex;
+			outIndices[outIndex + localIndexShift++] = vertexCount + rightVertexIndex;
+			outIndices[outIndex + localIndexShift++] = vertexCount + downRightVertexIndex;
+			outIndices[outIndex + localIndexShift++] = vertexCount + downVertexIndex;
 		}
 		indexShift += localIndexShift;
 	}
