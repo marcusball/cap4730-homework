@@ -41,11 +41,12 @@ protected:
 #define COLOR_VB 2
 #define NORMAL_VB 3
 #define TEXTURE_COORD_VB 4
+#define SIZE_VB 5
 
 	void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
 
 	bool isInit = false;
 
 	GLuint objectVAO;
-	std::array<GLuint, 5> objectBuffers;
+	std::array<GLuint, 6> objectBuffers;
 };

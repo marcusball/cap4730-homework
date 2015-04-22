@@ -47,6 +47,7 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 		for (int y = 0; y < pointsPerSide; y += 1){
 			outVertices[x * pointsPerSide + y].Position = Vector4f(5, y * distanceDelta, -1 * hos + x * distanceDelta, 1.f);
 			outVertices[x * pointsPerSide + y].Normal = Vector3f(0.f, 1.f, 0.f);
+			outVertices[x * pointsPerSide + y].Size = 5.f;
 		}
 	}
 
@@ -116,13 +117,13 @@ void MeshObject::Render(RenderData renderData){
 	glBindVertexArray(this->objectVAO);
 
 	glEnable(GL_POINT_SMOOTH);
-	//glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 
 	glDrawElementsBaseVertex(GL_POINTS, this->pointVertexCount, GL_UNSIGNED_INT, 0, 0);
 	glDrawElementsBaseVertex(GL_LINES, this->lineVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * this->pointVertexCount), 0);
 
 	glDisable(GL_POINT_SMOOTH);
-	//glDisable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
+	glDisable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 
 	glBindVertexArray(0);
 }

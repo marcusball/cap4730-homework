@@ -112,7 +112,7 @@ int main(){
 	DisplayModel->LoadFromFile("models/model.objc");
 
 	MeshObject testMesh = MeshObject();
-	testMesh.Init(10);
+	testMesh.Init(10,24);
 
 	ControlHooks.push_back(DisplayModel);
 
