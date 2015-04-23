@@ -65,6 +65,8 @@ private:
 	static void MouseCallback(GLFWwindow * window, int button, int action, int mods);
 	void RenderScene();
 	void SendPixelInfo();
+	void DrawPickingBuffer(RenderData & renderData);
+	void DrawGraphicBuffer(RenderData & renderData);
 
 
 	// Member Variables
@@ -90,8 +92,7 @@ private:
 	GLuint LightID2;
 
 	bool CameraFlipped = false;
-
-	bool mouseInput = false;
+	bool debugPicking = false;
 
 	AssembledObject * DisplayModel;
 };

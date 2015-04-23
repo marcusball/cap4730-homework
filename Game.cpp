@@ -187,80 +187,75 @@ void Game::RenderScene(){
 	modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
 	//MVP = ProjectionMatrix * ViewMatrix * modelMatrix;
 
+	glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
+	glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+	glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
 
+	RenderData renderData;
+	renderData.ModelMatrix = &modelMatrix;
+	renderData.ViewMatrix = &ViewMatrix;
+	renderData.ProjectionMatrix = &ProjectionMatrix;
+	renderData.ProjectionMatrixId = ProjectionMatrixID;
+	renderData.ModelMatrixId = ModelMatrixID;
+	renderData.ViewMatrixId = ViewMatrixID;
 
-	/*glUseProgram(PickingProgramID);
-	{
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
-		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-
-		RenderData renderData;
-		renderData.ModelMatrix = &modelMatrix;
-		renderData.ViewMatrix = &ViewMatrix;
-		renderData.ProjectionMatrix = &ProjectionMatrix;
-		renderData.ProjectionMatrixId = ProjectionMatrixID;
-		renderData.ModelMatrixId = ModelMatrixID;
-		renderData.ViewMatrixId = ViewMatrixID;
-		renderData.RenderType = RenderType::Picking;
-
-		/*for (int x = 0; x < RenderQueue.size(); x += 1){
-		RenderQueue[x]->Render(renderData);
-		RenderQueue.
-		}
-		while (!PickingRenderQueue.empty()){
-			PickingRenderQueue.front()->Render(renderData);
-			PickingRenderQueue.pop();
-		}
-
-		this->SendPixelInfo();
-
-		glBlendFunc(GL_NONE, GL_NONE);
-		glDisable(GL_BLEND);
-
-		//glFlush();
-		//glFinish();
-	}*/
-
-	glUseProgram(ProgramID); //Use the normal shaders
-	{
-		glClearColor(0.0f, 0.0f, 0.2f, 0.0f); //blue screen of death
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-
-		glm::vec3 lightPos1 = glm::vec3(-5, 5, -5);
-		glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
-		glm::vec3 lightPos2 = glm::vec3(5, 5, -5);
-		glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
-
-		RenderData renderData;
-		renderData.ModelMatrix = &modelMatrix;
-		renderData.ViewMatrix = &ViewMatrix;
-		renderData.ProjectionMatrix = &ProjectionMatrix;
-		renderData.ProjectionMatrixId = ProjectionMatrixID;
-		renderData.ModelMatrixId = ModelMatrixID;
-		renderData.ViewMatrixId = ViewMatrixID;
-
-		while (!RenderQueue.empty()){
-			RenderQueue.front()->Render(renderData);
-			RenderQueue.pop();
-		}
-
-		glBlendFunc(GL_NONE, GL_NONE);
-		glDisable(GL_BLEND);
-	}
-	glfwSwapBuffers(Window);
+	glUseProgram(PickingProgramID);
+	this->DrawPickingBuffer(renderData); //Draw the picking stuff
+	glUseProgram(ProgramID);
+	this->DrawGraphicBuffer(renderData);
+	
+	glfwSwapBuffers(this->Window);
 }
 
+void Game::DrawPickingBuffer(RenderData & renderData){
+	RenderData pickingRenderData(renderData); //Copy
+	pickingRenderData.RenderType = RenderType::Picking;
+
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+	while (!PickingRenderQueue.empty()){
+		PickingRenderQueue.front()->Render(pickingRenderData);
+		PickingRenderQueue.pop();
+	}
+
+	glBlendFunc(GL_NONE, GL_NONE);
+	glDisable(GL_BLEND);
+
+	if (!this->debugPicking){
+		glFlush();
+		glFinish();
+	}
+}
+
+void Game::DrawGraphicBuffer(RenderData & renderData){
+	glClearColor(0.0f, 0.0f, 0.2f, 0.0f); //blue screen of death
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+	glm::vec3 lightPos1 = glm::vec3(-5, 5, -5);
+	glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
+	glm::vec3 lightPos2 = glm::vec3(5, 5, -5);
+	glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
+
+	while (!RenderQueue.empty()){
+		RenderQueue.front()->Render(renderData);
+		RenderQueue.pop();
+	}
+
+	glBlendFunc(GL_NONE, GL_NONE);
+	glDisable(GL_BLEND);
+
+	if (this->debugPicking){
+		glFlush();
+		glFinish();
+	}
+}
 
 /***************************************************/
 /** Input callback and event handlers             **/
@@ -326,6 +321,10 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				break;
 			}
 			case GLFW_KEY_SPACE:
+				break;
+			case GLFW_KEY_X:
+				game->debugPicking = !game->debugPicking;
+				printf("Debug is %s\n", (game->debugPicking) ? "on" : "off");
 				break;
 			default:
 				break;
@@ -407,23 +406,6 @@ void Game::MouseCallback(GLFWwindow * window, int button, int action, int mods){
 			return;
 		}
 	}
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	// Read the pixel at the center of the screen.
-	// You can also use glfwGetMousePos().
-	// Ultra-mega-over slow too, even for 1 pixel, 
-	// because the framebuffer is on the GPU.
-	double xpos, ypos;
-	glfwGetCursorPos(game->Window, &xpos, &ypos);
-	unsigned char data[4];
-	glReadPixels(xpos, game->RESOLUTION_HEIGHT - ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data); // OpenGL renders with (0,0) on bottom, mouse reports with (0,0) on top
-
-	// Convert the color back to an integer ID
-	int pickedID = int(data[0]);
-	int pickedView = int(data[2]);
-
-	printf("%d %d %d %d [in mouse callback] \n", data[0], data[1], data[2], data[3]);
 }
 
 void Game::RequestPixelInfo(PixelInfoCallback callback){
