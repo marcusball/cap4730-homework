@@ -1,5 +1,5 @@
 #include "Vectors.h"
-
+/*
 Vector4f::Vector4f() : Vector4f(0, 0, 0, 0){};
 
 Vector4f::Vector4f(Vector3f xyz, float w){
@@ -48,53 +48,6 @@ const float & Vector4f::operator[](int index) const{
 
 
 
-Vector3f::Vector3f() : Vector3f(0, 0, 0){};
-
-Vector3f::Vector3f(float x, float y, float z){
-	this->value = { { x, y, z } };
-}
-
-Vector3f Vector3f::operator =(const Vector3f& a){
-	if (&a == this){
-		return *this;
-	}
-
-	this->value = a.value;
-
-	return *this;
-}
-
-Vector3f Vector3f::operator =(const float* a){
-	this->value = { { a[0], a[1], a[2] } };
-
-	return *this;
-}
-
-Vector3f Vector3f::operator -(const Vector3f& a)const {
-	return Vector3f(this->value[0] - a.value[0], this->value[1] - a.value[1], this->value[2] - a.value[2]);
-}
-Vector3f Vector3f::operator +(const Vector3f& a)const {
-	return Vector3f(this->value[0] + a.value[0], this->value[1] + a.value[1], this->value[2] + a.value[2]);
-}
-Vector3f Vector3f::operator *(const float& a) const {
-	return Vector3f(this->value[0] * a, this->value[1] * a, this->value[2] * a);
-}
-Vector3f Vector3f::operator /(const float& a)const {
-	return Vector3f(this->value[0] / a, this->value[1] / a, this->value[2] / a);
-}
-
-/*float operator[](const int index) const{
-return this->value[index];
-}*/
-float & Vector3f::operator[](int index){
-	return this->value[index];
-}
-const float & Vector3f::operator[](int index) const{
-	return this->value[index];
-}
-
-
-
 Vector2f::Vector2f() : Vector2f(0, 0){};
 
 Vector2f::Vector2f(float x, float y){
@@ -130,12 +83,11 @@ Vector2f Vector2f::operator /(const float& a)const {
 	return Vector2f(this->value[0] / a, this->value[1] / a);
 }
 
-/*float operator[](const int index) const{
-return this->value[index];
-}*/
+
 float & Vector2f::operator[](int index){
 	return this->value[index];
 }
 const float & Vector2f::operator[](int index) const{
 	return this->value[index];
 }
+*/

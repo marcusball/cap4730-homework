@@ -2,10 +2,11 @@
 #include <vector>
 
 #include "RenderableObject.h"
+#include "ControlInterceptor.h"
 #include "Vectors.h"
 #include "Vertex.h"
 
-class MeshObject : public RenderableObject
+class MeshObject : public RenderableObject, public ControlInterceptor
 {
 public:
 	/*
@@ -19,6 +20,17 @@ public:
 	void Init(float sideLength, int blockCount = 12);
 
 	virtual void Render(RenderData renderData);
+
+	/*
+	* Receive keyboard input.
+	* Return true if calling function should not receive the input passed to this.
+	* Return false if calling function may continue to dispatch input elsewhere.
+	*/
+	//virtual bool KeyCallback(int key, int scancode, int action, int mods);
+	virtual bool KeyCallback(int key, int scancode, int action, int mods);
+	virtual bool MouseCallback(int button, int action, int mods);
+
+	int PixelInfoCallback(Vector4b color, Vector2f mousePos);
 
 private:
 

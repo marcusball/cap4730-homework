@@ -1,5 +1,6 @@
 #include "MeshObject.h"
 #include "tga.h"
+#include "Game.h"
 
 
 MeshObject::MeshObject(){
@@ -56,6 +57,7 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 	for (int x = 0; x < pointsPerSide; x += 1){
 		for (int y = 0; y < pointsPerSide; y += 1){
 			Vertex * vtx = &outVertices[x * pointsPerSide + y];
+			vtx->Id = x * pointsPerSide + y;
 			vtx->Position = Vector4f(5, y * distanceDelta, -1 * hos + x * distanceDelta, 1.f);
 			vtx->Normal = Vector3f(0.f, 1.f, 0.f);
 			vtx->Size = 5.f;
@@ -176,8 +178,10 @@ void MeshObject::Render(RenderData renderData){
 	glBindTexture(GL_TEXTURE_2D, this->textureObject);
 
 	glDrawElementsBaseVertex(GL_POINTS, this->pointVertexCount, GL_UNSIGNED_INT, 0, 0);
-	glDrawElementsBaseVertex(GL_LINES, this->lineVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * this->pointVertexCount), 0);
-	glDrawElementsBaseVertex(GL_TRIANGLES, this->triangleVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* (this->pointVertexCount + this->lineVertexCount)), 0);
+	if (renderData.RenderType != RenderType::Picking){
+		glDrawElementsBaseVertex(GL_LINES, this->lineVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* this->pointVertexCount), 0);
+		glDrawElementsBaseVertex(GL_TRIANGLES, this->triangleVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* (this->pointVertexCount + this->lineVertexCount)), 0);
+	}
 
 	glDisable(GL_POINT_SMOOTH);
 	glDisable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
@@ -194,7 +198,7 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 	//// Create the buffers for the vertices atttributes
 	//glGenBuffers(this->objectBuffers.size(), &this->objectBuffers[0]);
 
-
+	std::vector<unsigned int> ids;
 	std::vector<Vector4f> positions;
 	std::vector<Vector4f> colors;
 	std::vector<Vector4f> normals;
@@ -206,12 +210,18 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 	sizes.reserve(vertices->size());
 	for (int x = 0; x < vertices->size(); x += 1){
 		const Vertex * vtx = &(*vertices)[x];
+		ids.push_back(vtx->Id);
 		positions.push_back(vtx->Position);
 		colors.push_back(vtx->Color);
 		normals.push_back(vtx->Normal);
 		textures.push_back(vtx->Texture);
 		sizes.push_back((*vertices)[x].Size);
 	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[ID_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(ids[0]) * ids.size(), &ids[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, 0, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, this->objectBuffers[POSITION_VB]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(positions[0]) * positions.size(), &positions[0], GL_STATIC_DRAW);
@@ -243,4 +253,27 @@ void MeshObject::CreateVertexBuffers(const std::vector<Vertex> * const vertices,
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->objectBuffers[INDEX_VB]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof((*indices)[0]) * indices->size(), &(*indices)[0], GL_STATIC_DRAW);
+}
+
+bool MeshObject::KeyCallback(int key, int scancode, int action, int mods){
+	return false;
+}
+bool MeshObject::MouseCallback(int button, int action, int mods){
+	if (button == GLFW_MOUSE_BUTTON_LEFT){
+		Game * game = Game::GetInstance();
+		game->RequestPixelInfo(std::bind(&MeshObject::PixelInfoCallback, this, std::placeholders::_1, std::placeholders::_2));
+	}
+	return false;
+}
+
+int MeshObject::PixelInfoCallback(Vector4b color, Vector2f mousePos){
+	//printf("Color at (%.2f, %.2f) is <%.1f, %.1f, %.1f, %.1f>\n", mousePos[0], mousePos[1], color[0], color[1], color[2], color[3]);
+	int pointId = (color[0] | (color[1] << 8) | (color[2] << 16));
+	if (pointId != 0x00ffffff){
+		printf("Color at (%.2f, %.2f) is id [%d]\n", mousePos[0], mousePos[1], pointId);
+	}
+	else{
+		printf("(%.2f, %.2f) is background\n", mousePos[0], mousePos[1]);
+	}
+	return 0;
 }

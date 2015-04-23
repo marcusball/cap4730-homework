@@ -1,70 +1,85 @@
 #pragma once
 #include <array>
 
-class Vector2f{
+template <typename vecType>
+class TVector2{
 public:
-	Vector2f();
+	TVector2();
 
-	Vector2f(float x, float y);
+	TVector2(vecType x, vecType y);
 
-	Vector2f operator =(const Vector2f& a);
+	TVector2 operator =(const TVector2& a);
 
-	Vector2f operator =(const float* a);
+	TVector2 operator =(const vecType* a);
 
-	std::array<float, 2> value;
+	std::array<vecType, 2> value;
 
 
-	Vector2f operator -(const Vector2f& a) const;
-	Vector2f operator +(const Vector2f& a) const;
-	Vector2f operator *(const float& a) const;
-	Vector2f operator /(const float& a) const;
+	TVector2 operator -(const TVector2& a) const;
+	TVector2 operator +(const TVector2& a) const;
+	TVector2 operator *(const vecType& a) const;
+	TVector2 operator /(const vecType& a) const;
 
-	float & operator[](int index);
-	const float & operator[](int index) const;
+	vecType & operator[](int index);
+	const vecType & operator[](int index) const;
 };
 
-class Vector3f{
+typedef TVector2<float> Vector2f;
+typedef TVector2<int> Vector2d;
+typedef TVector2<unsigned char> Vector2b;
+
+template <typename vecType>
+class TVector3{
 public:
-	Vector3f();
+	TVector3();
 
-	Vector3f(float x, float y, float z);
+	TVector3(vecType x, vecType y, vecType z);
 
-	Vector3f operator =(const Vector3f& a);
+	TVector3 operator =(const TVector3& a);
 
-	Vector3f operator =(const float* a);
+	TVector3 operator =(const vecType* a);
 
-	std::array<float, 3> value;
+	std::array<vecType, 3> value;
 
 
-	Vector3f operator -(const Vector3f& a) const;
-	Vector3f operator +(const Vector3f& a) const;
-	Vector3f operator *(const float& a) const;
-	Vector3f operator /(const float& a) const;
+	TVector3 operator -(const TVector3& a) const;
+	TVector3 operator +(const TVector3& a) const;
+	TVector3 operator *(const vecType& a) const;
+	TVector3 operator /(const vecType& a) const;
 
-	float & operator[](int index);
-	const float & operator[](int index) const;
+	vecType & operator[](int index);
+	const vecType & operator[](int index) const;
 };
 
-class Vector4f{
+typedef TVector3<float> Vector3f;
+typedef TVector3<int> Vector3d;
+typedef TVector3<unsigned char> Vector3b;
+
+template <typename vecType>
+class TVector4{
 public:
-	Vector4f();
-	Vector4f(Vector3f xyz, float w = 1.f);
-	Vector4f(float x, float y, float z, float w);
-	Vector4f operator =(const Vector4f& a);
-	Vector4f operator =(const float* a);
+	TVector4();
+	TVector4(TVector3<vecType> xyz, vecType w = 1);
+	TVector4(vecType x, vecType y, vecType z, vecType w);
+	TVector4 operator =(const TVector4& a);
+	TVector4 operator =(const vecType* a);
 
 
-	std::array<float, 4> value;
+	std::array<vecType, 4> value;
 
 
-	Vector4f operator -(const Vector4f& a) const;
-	Vector4f operator +(const Vector4f& a) const;
-	Vector4f operator *(const float& a) const;
-	Vector4f operator /(const float& a)const;
+	TVector4 operator -(const TVector4& a) const;
+	TVector4 operator +(const TVector4& a) const;
+	TVector4 operator *(const vecType& a) const;
+	TVector4 operator /(const vecType& a)const;
 
-	float & operator[](int index);
-	const float & operator[](int index) const;
+	vecType & operator[](int index);
+	const vecType & operator[](int index) const;
 };
+
+typedef TVector4<float> Vector4f;
+typedef TVector4<int> Vector4d;
+typedef TVector4<unsigned char> Vector4b;
 
 namespace ColorVectors{
 	static const Vector4f RED = Vector4f(1.f, 0.f, 0.f, 1.f);
@@ -78,3 +93,5 @@ namespace ColorVectors{
 	static const Vector4f BLACK = Vector4f(0.f, 0.f, 0.f, 1.f);
 	static const Vector4f GREY50 = Vector4f(.5f, .5f, .5f, 1.f);
 };
+
+#include "Vectors.tpp"

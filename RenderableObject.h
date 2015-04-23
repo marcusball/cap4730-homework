@@ -5,6 +5,11 @@
 #include <array>
 #include "Vertex.h"
 
+enum class RenderType : unsigned int{
+	Normal,
+	Picking
+};
+
 struct RenderData{
 	GLuint ModelMatrixId;
 	glm::mat4 * ModelMatrix;
@@ -16,6 +21,8 @@ struct RenderData{
 	glm::mat4 * ProjectionMatrix;
 
 	GLuint MVPId; 
+
+	RenderType RenderType = RenderType::Normal;
 };
 
 class RenderableObject
@@ -42,11 +49,12 @@ protected:
 #define NORMAL_VB 3
 #define TEXTURE_COORD_VB 4
 #define SIZE_VB 5
+#define ID_VB 6
 
 	virtual void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
 
 	bool isInit = false;
 
 	GLuint objectVAO;
-	std::array<GLuint, 6> objectBuffers;
+	std::array<GLuint, 7> objectBuffers;
 };
