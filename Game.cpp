@@ -199,23 +199,35 @@ void Game::RenderScene(){
 	renderData.ModelMatrixId = ModelMatrixID;
 	renderData.ViewMatrixId = ViewMatrixID;
 
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	glUseProgram(PickingProgramID);
 	this->DrawPickingBuffer(renderData); //Draw the picking stuff
-	glUseProgram(ProgramID);
-	this->DrawGraphicBuffer(renderData);
 	
-	glfwSwapBuffers(this->Window);
+	
+	if (this->debugPicking){
+		glfwSwapBuffers(this->Window);
+	}
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if (!this->debugPicking){
+		glUseProgram(ProgramID);
+		this->DrawGraphicBuffer(renderData);
+
+		glfwSwapBuffers(this->Window);
+	}
+	
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Game::DrawPickingBuffer(RenderData & renderData){
+void Game::DrawPickingBuffer(RenderData renderData){
 	RenderData pickingRenderData(renderData); //Copy
 	pickingRenderData.RenderType = RenderType::Picking;
-
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	while (!PickingRenderQueue.empty()){
 		PickingRenderQueue.front()->Render(pickingRenderData);
@@ -225,14 +237,24 @@ void Game::DrawPickingBuffer(RenderData & renderData){
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
 
+	
+
+	glFlush();
+	
+	this->SendPixelInfo();
+
 	if (!this->debugPicking){
-		glFlush();
-		glFinish();
-	}
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		
+	}glFinish();
 }
 
-void Game::DrawGraphicBuffer(RenderData & renderData){
+void Game::DrawGraphicBuffer(RenderData renderData){
+	RenderData normalRenderData(renderData); //Copy
+	
 	glClearColor(0.0f, 0.0f, 0.2f, 0.0f); //blue screen of death
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -244,17 +266,19 @@ void Game::DrawGraphicBuffer(RenderData & renderData){
 	glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
 
 	while (!RenderQueue.empty()){
-		RenderQueue.front()->Render(renderData);
+		RenderQueue.front()->Render(normalRenderData);
 		RenderQueue.pop();
 	}
 
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
 
+	
+	glFlush();
 	if (this->debugPicking){
-		glFlush();
-		glFinish();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
+	glFinish();
 }
 
 /***************************************************/
