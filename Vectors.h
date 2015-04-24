@@ -77,6 +77,8 @@ public:
 
 	vecType & operator[](int index);
 	const vecType & operator[](int index) const;
+
+	float DistanceTo(const TVector4& other);
 };
 
 typedef TVector4<float> Vector4f;

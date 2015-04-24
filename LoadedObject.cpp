@@ -28,19 +28,19 @@ bool LoadedObject::LoadFromFile(std::string filename){
 	glGenBuffers(this->objectBuffers.size(), &this->objectBuffers[0]);
 
 	std::vector<unsigned int> indices;
-	std::vector<Vertex> vertices;
-	if (LoadedObject::LoadObject(filename.c_str(), vertices, indices) == false){ //something bad happened
+	this->Vertices = new std::vector<Vertex>();
+	if (LoadedObject::LoadObject(filename.c_str(), *this->Vertices, indices) == false){ //something bad happened
 		return false;
 	}
 	this->vertexCount = indices.size();
 
 	if (this->overrideColorSet){
-		for (int i = 0; i < vertices.size(); i += 1){
-			vertices[i].Color = this->overrideColor;
+		for (int i = 0; i < this->Vertices->size(); i += 1){
+			(*this->Vertices)[i].Color = this->overrideColor;
 		}
 	}
 
-	this->CreateVertexBuffers(&vertices, &indices);
+	this->CreateVertexBuffers(this->Vertices, &indices);
 
 	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
 
@@ -134,4 +134,7 @@ void LoadedObject::Render(RenderData renderData){
 	glDisable(GL_POINT_SMOOTH);
 
 	glBindVertexArray(0);
+}
+std::vector<Vertex> * const LoadedObject::GetVertices(){
+	return this->Vertices;
 }

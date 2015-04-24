@@ -92,13 +92,14 @@ public:
 	virtual bool KeyCallback(int key, int scancode, int action, int mods);
 	virtual bool MouseCallback(int button, int action, int mods);
 
+	Joint * RootJoint;
 private:
 	static bool LoadObjectCombination(std::string filepath, std::vector<Joint> & structure, std::vector<SelectKeyBinding> & keyBindings, std::vector<DirectionKeyBinding> & moveKeyBindings);
 	static bool LoadObject(std::string filepath, std::vector<Vertex> & vertices, std::vector<unsigned int> & indices);
 
 	//int vertexCount;
 
-	Joint * RootJoint;
+	
 	std::vector<Joint> ObjectStructure;
 	std::vector<SelectKeyBinding> SelectBindings;
 	std::vector<DirectionKeyBinding> MovementBindings;

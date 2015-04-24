@@ -1,3 +1,6 @@
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #include "MeshObject.h"
 #include "tga.h"
 #include "Game.h"
@@ -17,9 +20,10 @@ MeshObject::~MeshObject()
 {
 }
 
-void MeshObject::Init(float sideLength, int blockCount){
+void MeshObject::Init(float sideLength, int pointsPerSide){
 	this->Clear();
 	this->isInit = true;
+	this->PointsPerSide = pointsPerSide;
 
 	glGenVertexArrays(1, &objectVAO);
 	glBindVertexArray(objectVAO);
@@ -28,7 +32,7 @@ void MeshObject::Init(float sideLength, int blockCount){
 
 	std::vector<unsigned int> indices;
 	this->Vertices = new std::vector<Vertex>();
-	this->GenerateVertices(sideLength, blockCount, indices, *this->Vertices, this->VertexCount, this->pointVertexCount, this->lineVertexCount, this->triangleVertexCount);
+	this->GenerateVertices(sideLength, this->PointsPerSide, indices, *this->Vertices, this->VertexCount, this->pointVertexCount, this->lineVertexCount, this->triangleVertexCount);
 
 	this->CreateVertexBuffers(this->Vertices, &indices);
 
@@ -433,4 +437,59 @@ int MeshObject::GetVertexIndexById(int id){
 		}
 	}
 	return -1;
+}
+
+void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radius, float height, float angleAdjust){
+	std::vector<Vertex> * const vertices = object->GetVertices();
+	float minDistance = 10000000000.f;
+	int best = -1;
+
+	float smallest = 10000000000.f;
+	for (int x = 0; x < this->VertexCount; x += 1){
+		float circlePart = (x / (this->PointsPerSide)) / (float)(this->PointsPerSide - 1);
+		float heightPart = (x % this->PointsPerSide) / (float)this->PointsPerSide;
+		float rayRadius = radius;
+		int tries = 0;
+
+		while (best == -1 && tries < 15){
+			float xpos = std::cos((circlePart * -360.f + angleAdjust) * M_PI / 180.f) * rayRadius;
+			float ypos = std::sin((circlePart * -360.f + angleAdjust) * M_PI / 180.f) * rayRadius;
+			Vector4f PointPosition = Vector4f(ypos, heightPart * height, xpos, 1.f);
+
+			(*this->Vertices)[x].Position = PointPosition;
+			(*this->Vertices)[x + this->VertexCount].Position = PointPosition;
+
+			for (int y = 0; y < vertices->size(); y += 1){
+				float distance = PointPosition.DistanceTo((*vertices)[y].Position);
+				if (distance < .25f && distance < minDistance){
+					best = y;
+					minDistance = distance;
+				}
+				if (distance < smallest){
+					smallest = distance;
+				}
+			}
+			if (rayRadius > 0.5){
+				if (best == -1){
+					rayRadius = rayRadius * .9f;
+				}
+				else{
+					rayRadius = rayRadius * .95f;
+				}
+			}
+			tries += 1;
+		}
+		if (best != -1){
+			(*this->Vertices)[x].Position = (*vertices)[best].Position;
+			(*this->Vertices)[x + this->VertexCount].Position = (*vertices)[best].Position;
+
+			printf("[*][%3d/%3d] Using distance of %f, from %d\n", (x + 1), this->VertexCount, smallest, best);
+		}
+		else{
+			printf("[*][%3d/%3d] Gave up, distance to closest was %f\n", (x + 1), this->VertexCount, smallest);
+		}
+		smallest = minDistance = 10000000000.f;
+		best = -1;
+	}
+	printf("[*] Done!\n");
 }

@@ -3,15 +3,15 @@
 /** Vector4                                           **/
 /*******************************************************/
 template <typename vecType>
-TVector4<vecType>::TVector4<vecType>() : TVector4<vecType>(0, 0, 0, 0){};
+TVector4<vecType>::TVector4() : TVector4<vecType>(0, 0, 0, 0){};
 
 template <typename vecType>
-TVector4<vecType>::TVector4<vecType>(TVector3<vecType> xyz, vecType w){
+TVector4<vecType>::TVector4(TVector3<vecType> xyz, vecType w){
 	this->value = { { xyz[0], xyz[1], xyz[2], w } };
 }
 
 template <typename vecType>
-TVector4<vecType>::TVector4<vecType>(vecType x, vecType y, vecType z, vecType w){
+TVector4<vecType>::TVector4(vecType x, vecType y, vecType z, vecType w){
 	this->value = { { x, y, z, w } };
 }
 
@@ -63,6 +63,10 @@ const vecType & TVector4<vecType>::operator[](int index) const{
 	return this->value[index];
 }
 
+template <typename vecType>
+float TVector4<vecType>::DistanceTo(const TVector4 & other){
+	return std::sqrt(std::pow(other[0] - this->value[0], 2) + std::pow(other[1] - this->value[1], 2) + std::pow(other[2] - this->value[2], 2));
+}
 
 /*******************************************************/
 /** Vector3                                           **/
@@ -129,10 +133,10 @@ const vecType & TVector3<vecType>::operator[](int index) const{
 /*******************************************************/
 
 template <typename vecType>
-TVector2<vecType>::TVector2<vecType>() : TVector2<vecType>(0, 0){};
+TVector2<vecType>::TVector2() : TVector2<vecType>(0, 0){};
 
 template <typename vecType>
-TVector2<vecType>::TVector2<vecType>(vecType x, vecType y){
+TVector2<vecType>::TVector2(vecType x, vecType y){
 	this->value = { { x, y } };
 }
 

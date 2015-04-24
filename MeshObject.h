@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "RenderableObject.h"
+#include "LoadedObject.h"
 #include "ControlInterceptor.h"
 #include "Vectors.h"
 #include "Vertex.h"
@@ -18,7 +19,7 @@ public:
 	MeshObject();
 	~MeshObject();
 
-	void Init(float sideLength, int blockCount = 12);
+	void Init(float sideLength, int pointsPerSide = 12);
 
 	virtual void Render(RenderData renderData);
 
@@ -30,6 +31,8 @@ public:
 	//virtual bool KeyCallback(int key, int scancode, int action, int mods);
 	virtual bool KeyCallback(int key, int scancode, int action, int mods);
 	virtual bool MouseCallback(int button, int action, int mods);
+
+	void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radius, float height, float angleAdjust = 0.f);
 
 private:
 
@@ -51,6 +54,8 @@ private:
 	int pointVertexCount;
 	int lineVertexCount;
 	int triangleVertexCount;
+
+	int PointsPerSide;
 
 	bool MovingPoints = false;
 

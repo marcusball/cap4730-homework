@@ -22,7 +22,9 @@ using namespace glm;
 #include "RenderableObject.h"
 #include "ControlInterceptor.h"
 #include "AssembledObject.h"
+#include "MeshObject.h"
 #include "Picking.h"
+#include "Vectors.h"
 
 
 class Game{
@@ -57,6 +59,8 @@ private:
 	const float CAMERA_EYE_X = 10.f;
 	const float CAMERA_EYE_Y = 10.f;
 	const float CAMERA_EYE_Z = 10.f;
+
+	const int GRID_COUNT = 22;
 
 	// Function prototypes
 	bool InitializeWindow();
@@ -99,5 +103,7 @@ private:
 	bool CameraFlipped = false;
 	bool debugPicking = false;
 
+	MeshObject * SkinModel;
 	AssembledObject * DisplayModel;
+	
 };

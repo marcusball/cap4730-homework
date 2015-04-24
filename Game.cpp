@@ -56,10 +56,10 @@ int Game::Run(){
 	DisplayModel = new AssembledObject();
 	DisplayModel->LoadFromFile("models/model.objc");
 
-	MeshObject testMesh = MeshObject();
-	testMesh.Init(10, 11);
+	this->SkinModel = new MeshObject();
+	this->SkinModel->Init(10, this->GRID_COUNT);
 
-	ControlHooks.push_back(&testMesh);
+	ControlHooks.push_back(SkinModel);
 	ControlHooks.push_back(DisplayModel);
 
 	//Perform the main render loop
@@ -86,8 +86,8 @@ int Game::Run(){
 		RenderQueue.push(&testGrid);
 		//RenderQueue.push_back(&testObject);
 		RenderQueue.push(DisplayModel);
-		RenderQueue.push(&testMesh);
-		PickingRenderQueue.push(&testMesh);
+		RenderQueue.push(SkinModel);
+		PickingRenderQueue.push(SkinModel);
 
 		// DRAWING POINTS
 		RenderScene();
@@ -333,6 +333,9 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 			case GLFW_KEY_R: {
 				game->DisplayModel->Clear();
 				game->DisplayModel->LoadFromFile("models/model.objc");
+
+				game->SkinModel->Clear();
+				game->SkinModel->Init(10, game->GRID_COUNT);
 				break;
 			}
 			case GLFW_KEY_A:
@@ -375,6 +378,14 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				game->debugPicking = !game->debugPicking;
 				printf("Debug is %s\n", (game->debugPicking) ? "on" : "off");
 				break;
+			case GLFW_KEY_M:{
+				LoadedObject * face = &game->DisplayModel->RootJoint->Components[0].Object;
+				game->SkinModel->CylinderFix(face, Vector3f(0, -0.5, 0), 4.f, 8.f, -65.f);
+				/***********************************************************************************************
+				 ** This is probably the line you're looking for.                                             **
+				 ***********************************************************************************************/
+				break;
+			}
 			default:
 				break;
 		}

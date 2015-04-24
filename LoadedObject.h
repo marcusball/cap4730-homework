@@ -17,6 +17,8 @@ public:
 
 	virtual void Render(RenderData renderData);
 
+	std::vector<Vertex> * const GetVertices();
+
 private:
 
 	static bool LoadObject(std::string filepath, std::vector<Vertex> & vertices, std::vector<unsigned int> & indices);
@@ -25,5 +27,7 @@ private:
 
 	bool overrideColorSet = false;
 	Vector4f overrideColor;
+
+	std::vector<Vertex> * Vertices;
 };
 
