@@ -259,7 +259,7 @@ bool MeshObject::KeyCallback(int key, int scancode, int action, int mods){
 	return false;
 }
 bool MeshObject::MouseCallback(int button, int action, int mods){
-	if (button == GLFW_MOUSE_BUTTON_LEFT){
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
 		Game * game = Game::GetInstance();
 		game->RequestPixelInfo(std::bind(&MeshObject::PixelInfoCallback, this, std::placeholders::_1, std::placeholders::_2));
 	}

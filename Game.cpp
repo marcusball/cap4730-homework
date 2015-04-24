@@ -201,12 +201,18 @@ void Game::RenderScene(){
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glUseProgram(PickingProgramID);
-	this->DrawPickingBuffer(renderData); //Draw the picking stuff
-	
+	//if (!this->PixelInfoQueue.empty()){
+	if (glfwGetMouseButton(this->Window, GLFW_MOUSE_BUTTON_LEFT)){
+		glUseProgram(PickingProgramID);
+		this->DrawPickingBuffer(renderData); //Draw the picking stuff
+	}
 	
 	if (this->debugPicking){
 		glfwSwapBuffers(this->Window);
+	}
+	else{
+		glFinish();
+		//glfwSwapBuffers(0);
 	}
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	if (!this->debugPicking){
