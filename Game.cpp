@@ -378,7 +378,7 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				break;
 			case GLFW_KEY_M:{
 				LoadedObject * face = &game->DisplayModel->RootJoint->Components[0].Object;
-				game->SkinModel->CylinderFix(face, Vector3f(0, -0.5, 0), 4.f, 8.f, -65.f);
+				game->SkinModel->CylinderFix(face, Vector3f(0.1, 0.0, 0.2), 4.f, 8.f, -90.f);
 				/***********************************************************************************************
 				 ** This is probably the line you're looking for.                                             **
 				 ***********************************************************************************************/

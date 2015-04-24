@@ -60,7 +60,7 @@ private:
 	const float CAMERA_EYE_Y = 10.f;
 	const float CAMERA_EYE_Z = 10.f;
 
-	const int GRID_COUNT = 22;
+	const int GRID_COUNT = 30;
 
 	// Function prototypes
 	bool InitializeWindow();

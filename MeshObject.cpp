@@ -469,7 +469,7 @@ void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radiu
 		while (best == -1 && tries < 15){
 			float xpos = std::cos((circlePart * -360.f + angleAdjust) * M_PI / 180.f) * rayRadius;
 			float ypos = std::sin((circlePart * -360.f + angleAdjust) * M_PI / 180.f) * rayRadius;
-			Vector4f PointPosition = Vector4f(ypos, heightPart * height, xpos, 1.f);
+			Vector4f PointPosition = Vector4f(origin[0] + ypos, origin[1] + heightPart * height, origin[2] + xpos, 1.f);
 
 			(*this->Vertices)[x].Position = PointPosition;
 			(*this->Vertices)[x + this->VertexCount].Position = PointPosition;
