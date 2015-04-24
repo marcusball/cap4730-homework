@@ -33,9 +33,4 @@ private:
 	static GLuint FBO;
 	static GLuint idTexture;
 	static GLuint depthTexture;
-
-	/*
-	 * Toggles whether VBO is bound or not.
-	 */
-	static void BindToFBO(bool isBound);
 };

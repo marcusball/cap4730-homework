@@ -81,3 +81,7 @@ void RenderableObject::CreateVertexBuffers(const std::vector<Vertex> * const ver
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->objectBuffers[INDEX_VB]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof((*indices)[0]) * indices->size(), &(*indices)[0], GL_STATIC_DRAW);
 }
+
+void RenderableObject::SetObjectId(int id){
+	this->objectId = id;
+}

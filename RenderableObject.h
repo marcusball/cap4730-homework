@@ -42,6 +42,8 @@ public:
 	 */
 	virtual void Clear();
 
+	void SetObjectId(int id);
+
 protected:
 #define INDEX_VB 0
 #define POSITION_VB 1
@@ -57,4 +59,6 @@ protected:
 
 	GLuint objectVAO;
 	std::array<GLuint, 7> objectBuffers;
+
+	int objectId;
 };

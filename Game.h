@@ -35,15 +35,14 @@ public:
 	const unsigned int RESOLUTION_WIDTH = 1024;
 	const unsigned int RESOLUTION_HEIGHT = 768;
 
-	//Typedefs
-	typedef std::tr1::function<int (Vector4b, Vector2f)> PixelInfoCallback;
-
 	// Member Variables
 	GLFWwindow * Window;
 
 	//Public functions
 	int Run();
-	void RequestPixelInfo(PixelInfoCallback callback);
+
+	PixelData GetPixelSelected();
+	Vector2ui GetCursorPosition();
 
 private:
 	//Singleton
@@ -65,10 +64,9 @@ private:
 	static void KeyCallback(GLFWwindow * window, int key, int scancode, int action, int mods);
 	static void MouseCallback(GLFWwindow * window, int button, int action, int mods);
 	void RenderScene();
-	void SendPixelInfo();
 	void DrawPickingBuffer(RenderData renderData);
 	void DrawGraphicBuffer(RenderData renderData);
-	Vector2ui GetCursorPosition();
+	
 
 
 	// Member Variables
@@ -78,7 +76,6 @@ private:
 	std::queue<RenderableObject *> RenderQueue;
 	std::queue<RenderableObject *> PickingRenderQueue;
 	std::vector<ControlInterceptor *> ControlHooks;
-	std::queue<PixelInfoCallback> PixelInfoQueue;
 
 	GLuint ProgramID;
 	GLuint PickingProgramID;
@@ -87,12 +84,17 @@ private:
 	glm::mat4 ViewMatrix;
 
 	GLuint ProjectionMatrixID;
-	GLuint PickingMatrixID;
+	
 	GLuint ViewMatrixID;
 	GLuint ModelMatrixID;
+	GLuint PickingMatrixID;
+	GLuint PickingObjectID;
+	GLuint PickingProjectionMatrixID;
+	GLuint PickingViewMatrixID;
+	GLuint PickingModelMatrixID;
 	GLuint LightID1;
 	GLuint LightID2;
-	GLuint PickingObjectID;
+	
 
 	bool CameraFlipped = false;
 	bool debugPicking = false;

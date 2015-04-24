@@ -5,6 +5,7 @@
 #include "ControlInterceptor.h"
 #include "Vectors.h"
 #include "Vertex.h"
+#include "Picking.h"
 
 class MeshObject : public RenderableObject, public ControlInterceptor
 {
@@ -30,11 +31,10 @@ public:
 	virtual bool KeyCallback(int key, int scancode, int action, int mods);
 	virtual bool MouseCallback(int button, int action, int mods);
 
-	int PixelInfoCallback(Vector4b color, Vector2f mousePos);
-
 private:
 
 	virtual void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
+	void UpdateVertexBuffers(const std::vector<Vertex> * const vertices);
 
 	/*
 	* Generate all of the necessary verticies and data to display the grid.
@@ -49,6 +49,10 @@ private:
 	int lineVertexCount;
 	int triangleVertexCount;
 
+	bool PointsMoved = false;
+
 	GLuint textureObject;
+
+	std::vector<Vertex> * Vertices;
 };
 

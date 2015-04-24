@@ -45,32 +45,23 @@ bool Picking::Initialize(){
 }
 
 void Picking::Enable(){
-	Picking::BindToFBO(true);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, Picking::FBO);
 }
 
 void Picking::Disable(){
-	Picking::BindToFBO(false);
-}
-
-void Picking::BindToFBO(bool isBound){
-	if (isBound){
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, Picking::FBO);
-	}
-	else{
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	}
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 
 PixelData Picking::ReadPixelAt(Vector2ui coord){
-	Picking::BindToFBO(true);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, Picking::FBO);
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 	PixelData pixel;
 	glReadPixels(coord[0], coord[1], 1, 1, GL_RGB, GL_FLOAT, &pixel);
 
 	glReadBuffer(GL_NONE);
-	Picking::BindToFBO(false);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	return pixel;
 }
 

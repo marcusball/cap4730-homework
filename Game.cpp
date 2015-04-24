@@ -175,6 +175,9 @@ bool Game::InitializeOpenGL(){
 	LightID2 = glGetUniformLocation(ProgramID, "Light2Position_worldspace");
 
 	PickingObjectID = glGetUniformLocation(PickingProgramID, "ObjectId");
+	PickingProjectionMatrixID = glGetUniformLocation(PickingProgramID, "ProjectionMatrix");
+	PickingViewMatrixID = glGetUniformLocation(PickingProgramID, "ViewMatrix");
+	PickingModelMatrixID = glGetUniformLocation(PickingProgramID, "ModelMatrix");
 
 	return true;
 }
@@ -185,46 +188,63 @@ bool Game::InitializeOpenGL(){
 
 void Game::RenderScene(){
 	glm::mat4 scaleMatrix, translationMatrix, rotationMatrix;
-	glm::mat4 modelMatrix;
+	glm::mat4 modelMatrix, pickingModelMatrix;
 	glm::mat4 MVP;
 
 	modelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
+	pickingModelMatrix = glm::mat4(1.0);
 	//MVP = ProjectionMatrix * ViewMatrix * modelMatrix;
 
-	glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
-	glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-	glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-
-	RenderData renderData;
-	renderData.ModelMatrix = &modelMatrix;
-	renderData.ViewMatrix = &ViewMatrix;
-	renderData.ProjectionMatrix = &ProjectionMatrix;
-	renderData.ProjectionMatrixId = ProjectionMatrixID;
-	renderData.ModelMatrixId = ModelMatrixID;
-	renderData.ViewMatrixId = ViewMatrixID;
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//Start the picking process
+
+	
 	glUseProgram(PickingProgramID);
+	{
+		Picking::Enable();
+		glUniformMatrix4fv(PickingProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
+		glUniformMatrix4fv(PickingModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+		glUniformMatrix4fv(PickingViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
 
-	Picking::Enable();
-	this->DrawPickingBuffer(renderData); //Draw the picking stuff
-	Picking::Disable();
+		RenderData pickingRenderData;
+		pickingRenderData.ModelMatrix = &pickingModelMatrix;
+		pickingRenderData.ViewMatrix = &ViewMatrix;
+		pickingRenderData.ProjectionMatrix = &ProjectionMatrix;
+		pickingRenderData.ProjectionMatrixId = PickingProjectionMatrixID;
+		pickingRenderData.ModelMatrixId = PickingModelMatrixID;
+		pickingRenderData.ViewMatrixId = PickingViewMatrixID;
 
+		this->DrawPickingBuffer(pickingRenderData); //Draw the picking stuff
+
+		Picking::Disable();
+
+		glFlush();
+		glFinish();
+	}
+	
 
 	//Start the render process
 	glUseProgram(ProgramID);
-	this->DrawGraphicBuffer(renderData);
+	{
+		glUniformMatrix4fv(ProjectionMatrixID, 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
+		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, glm::value_ptr(modelMatrix));
+		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, glm::value_ptr(ViewMatrix));
 
-	while(!this->PixelInfoQueue.empty()){
-		PixelData pixel = Picking::ReadPixelAt(this->GetCursorPosition());
-		
-		printf("Object Id: %f, Point Id: %f, Prim: %f\n", pixel.ObjectId, pixel.PointId, pixel.PrimitiveId);
+		RenderData renderData;
+		renderData.ModelMatrix = &modelMatrix;
+		renderData.ViewMatrix = &ViewMatrix;
+		renderData.ProjectionMatrix = &ProjectionMatrix;
+		renderData.ProjectionMatrixId = ProjectionMatrixID;
+		renderData.ModelMatrixId = ModelMatrixID;
+		renderData.ViewMatrixId = ViewMatrixID;
 
-		this->PixelInfoQueue.pop();
+		this->DrawGraphicBuffer(renderData);
+
+		glFlush();
+		glFinish();
 	}
-
 	glfwSwapBuffers(this->Window);
 }
 
@@ -235,24 +255,24 @@ void Game::DrawPickingBuffer(RenderData renderData){
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(0.f, 0.f, 0.f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	int x = 0;
+	int x = 1;
 	while (!PickingRenderQueue.empty()){
 		Picking::UpdateObjectId(PickingObjectID, x);
 
+		PickingRenderQueue.front()->SetObjectId(x);
 		PickingRenderQueue.front()->Render(pickingRenderData);
 		PickingRenderQueue.pop();
+		
 		x += 1; 
 	}
 
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
-
-
-	glFlush();
-	glFinish();
+	/*glFlush();
+	glFinish();*/
 }
 
 void Game::DrawGraphicBuffer(RenderData renderData){
@@ -279,11 +299,11 @@ void Game::DrawGraphicBuffer(RenderData renderData){
 	glDisable(GL_BLEND);
 
 	
-	glFlush();
+	/*glFlush();
 	if (this->debugPicking){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
-	glFinish();
+	glFinish();*/
 }
 
 /***************************************************/
@@ -437,40 +457,6 @@ void Game::MouseCallback(GLFWwindow * window, int button, int action, int mods){
 	}
 }
 
-void Game::RequestPixelInfo(PixelInfoCallback callback){
-	this->PixelInfoQueue.push(callback);
-}
-
-void Game::SendPixelInfo(){
-	if (!this->PixelInfoQueue.empty()){
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-		// Read the pixel at the center of the screen.
-		// You can also use glfwGetMousePos().
-		// Ultra-mega-over slow too, even for 1 pixel, 
-		// because the framebuffer is on the GPU.
-		double xpos, ypos;
-		glfwGetCursorPos(Window, &xpos, &ypos);
-		unsigned char data[4];
-		glReadPixels(xpos, RESOLUTION_HEIGHT - ypos, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data); // OpenGL renders with (0,0) on bottom, mouse reports with (0,0) on top
-
-		// Convert the color back to an integer ID
-		int pickedID = int(data[0]);
-		int pickedView = int(data[2]);
-
-		printf("%d %d %d %d\n", data[0], data[1], data[2], data[3]);
-
-		Vector4b color = Vector4b(data[0], data[1], data[2], data[3]);
-		Vector2f mousePos = Vector2f(xpos, ypos);
-
-		while (!this->PixelInfoQueue.empty()){
-			PixelInfoCallback callback = this->PixelInfoQueue.front();
-			int out = callback(color, mousePos);
-			this->PixelInfoQueue.pop();
-		}
-	}
-}
-
 Vector2ui Game::GetCursorPosition(){
 	double xpos, ypos;
 	glfwGetCursorPos(this->Window, &xpos, &ypos);
@@ -478,4 +464,11 @@ Vector2ui Game::GetCursorPosition(){
 	
 	Vector2ui pos = Vector2ui(static_cast<unsigned int>(xpos), static_cast<unsigned int>(this->RESOLUTION_HEIGHT - ypos));
 	return pos;
+}
+
+PixelData Game::GetPixelSelected(){
+	Vector2ui mousePositon = this->GetCursorPosition();
+	PixelData pixel = Picking::ReadPixelAt(mousePositon);
+
+	return pixel;
 }
