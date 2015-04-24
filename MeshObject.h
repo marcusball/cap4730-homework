@@ -39,9 +39,12 @@ private:
 	/*
 	* Generate all of the necessary verticies and data to display the grid.
 	*/
-	void GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & pointIndexCount, int & lineIndexCount, int & triangleIndexCount);
-
+	void GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & vertexCount, int & pointIndexCount, int & lineIndexCount, int & triangleIndexCount);
 	static int GetNeighborIndex(int currentIndex, int horizontalLength, int verticalLength, int direction);
+	void ClearPickedVertices();
+	void ClearPickedVertex(int id);
+	bool IsVertexPicked(int id);
+	int GetVertexIndexById(int id);
 
 	int lineCount = 0;
 
@@ -49,10 +52,20 @@ private:
 	int lineVertexCount;
 	int triangleVertexCount;
 
-	bool PointsMoved = false;
+	bool MovingPoints = false;
 
 	GLuint textureObject;
 
+	Vector2d pickingStartPosition;
+
+	struct PickedVertex{
+		Vector4f OriginalPosition;
+		Vertex * Vertex;
+	};
+	
+	std::vector<PickedVertex> PickedVertices;
+
+	int VertexCount;
 	std::vector<Vertex> * Vertices;
 };
 

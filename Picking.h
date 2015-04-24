@@ -25,7 +25,7 @@ public:
 	static void Enable();
 	static void Disable();
 
-	static PixelData ReadPixelAt(Vector2ui coord);
+	static PixelData ReadPixelAt(Vector2d coord);
 
 	static void UpdateObjectId(GLuint objectIdLocation, unsigned int objectId);
 private:

@@ -53,7 +53,7 @@ void Picking::Disable(){
 }
 
 
-PixelData Picking::ReadPixelAt(Vector2ui coord){
+PixelData Picking::ReadPixelAt(Vector2d coord){
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, Picking::FBO);
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 

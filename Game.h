@@ -42,7 +42,7 @@ public:
 	int Run();
 
 	PixelData GetPixelSelected();
-	Vector2ui GetCursorPosition();
+	Vector2d GetCursorPosition();
 
 private:
 	//Singleton

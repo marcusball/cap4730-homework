@@ -2,6 +2,11 @@
 #include "tga.h"
 #include "Game.h"
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 
 MeshObject::MeshObject(){
 
@@ -23,7 +28,7 @@ void MeshObject::Init(float sideLength, int blockCount){
 
 	std::vector<unsigned int> indices;
 	this->Vertices = new std::vector<Vertex>();
-	this->GenerateVertices(sideLength, blockCount, indices, *this->Vertices, this->pointVertexCount, this->lineVertexCount, this->triangleVertexCount);
+	this->GenerateVertices(sideLength, blockCount, indices, *this->Vertices, this->VertexCount, this->pointVertexCount, this->lineVertexCount, this->triangleVertexCount);
 
 	this->CreateVertexBuffers(this->Vertices, &indices);
 
@@ -37,11 +42,11 @@ void MeshObject::Init(float sideLength, int blockCount){
 	glBindVertexArray(0); //Unbind the VAO so it's not changed elsewhere
 }
 
-void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & pointIndexCount, int & lineIndexCount, int & triangleIndexCount){
+void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vector<unsigned int> & outIndices, std::vector<Vertex> & outVertices, int & vertexCount, int & pointIndexCount, int & lineIndexCount, int & triangleIndexCount){
 	if (pointsPerSide < 2){ return; }
 
 	//The number of verticies needed to display a grid. 
-	int vertexCount = pointsPerSide * pointsPerSide;
+	vertexCount = pointsPerSide * pointsPerSide;
 
 	//The last vertex, with the highest index.
 	int vertexMaxIndex = vertexCount;
@@ -60,7 +65,7 @@ void MeshObject::GenerateVertices(float sideLength, int pointsPerSide, std::vect
 			vtx->Id = x * pointsPerSide + y;
 			vtx->Position = Vector4f(5, y * distanceDelta, -1 * hos + x * distanceDelta, 1.f);
 			vtx->Normal = Vector3f(0.f, 1.f, 0.f);
-			vtx->Size = 50.f;
+			vtx->Size = 5.f;
 			vtx->Color = ColorVectors::GREEN;
 
 			Vertex * ivtx = &outVertices[(x * pointsPerSide + y) + vertexCount]; //A vertex on which the image will be projected
@@ -174,11 +179,38 @@ void MeshObject::Render(RenderData renderData){
 	glEnable(GL_POINT_SMOOTH);
 	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE_ARB);
 
-	if (PointsMoved){
+	if (this-MovingPoints){
 		Game * game = Game::GetInstance();
-		Vector2ui position = game->GetCursorPosition();
-		printf("(%d, %d)\n", position[0], position[1]);
+		Vector2d position = game->GetCursorPosition();
+		//printf("(%d, %d)\n", position[0], position[1]);
 
+		Vector2f relativeWindow = Vector2f(position[0] / (float)game->RESOLUTION_WIDTH, position[1] / (float)game->RESOLUTION_HEIGHT);
+		Vector2f relativeWindowOriginal = Vector2f(this->pickingStartPosition[0] / (float)game->RESOLUTION_WIDTH, this->pickingStartPosition[1] / (float)game->RESOLUTION_HEIGHT);
+
+		Vector2f delta = relativeWindow - relativeWindowOriginal;
+		//printf("Delta: (%.3f, %.3f)\n", delta[0], delta[1]);
+
+		glm::vec4 movement = glm::vec4(delta[0],delta[1],0,0);
+		glm::mat4 mvp = (*renderData.ProjectionMatrix) * (*renderData.ViewMatrix) * (*renderData.ModelMatrix);
+
+		for (int x = 0; x < this->PickedVertices.size(); x += 1){
+			PickedVertex * picked = &this->PickedVertices[x];
+			Vertex * textureVertex = &(*this->Vertices)[picked->Vertex->Id + this->VertexCount];
+
+			glm::vec4 originalPositon = glm::vec4(picked->OriginalPosition[0], picked->OriginalPosition[1], picked->OriginalPosition[2], picked->OriginalPosition[3]);
+			glm::vec4 cameraPosition = mvp * originalPositon;
+			glm::vec4 cameraDelta = mvp * movement * 2.f;
+			glm::vec4 pointMovement = originalPositon + cameraDelta;
+			Vector4f newPosition = Vector4f(pointMovement.x, pointMovement.y, pointMovement.z, 1);
+
+			//printf("Pos: (%.3f, %.3f, %.3f) Mov: (%.3f, %.3f,%.3f)\n", cameraPosition.x, cameraPosition.y, cameraPosition.z, cameraDelta.x, cameraDelta.y, cameraDelta.z);
+
+			picked->Vertex->Color = ColorVectors::RED;
+			picked->Vertex->Size = 10.f;
+			picked->Vertex->Position = newPosition;
+
+			textureVertex->Position = newPosition;
+		}
 		this->UpdateVertexBuffers(this->Vertices);
 	}
 
@@ -325,22 +357,80 @@ bool MeshObject::MouseCallback(int button, int action, int mods){
 	Game * game = Game::GetInstance();
 
 	PixelData data = game->GetPixelSelected();
-	Vector2ui position = game->GetCursorPosition();
+	Vector2d position = game->GetCursorPosition();
 	if (data.ObjectId == this->objectId){
 		if (button == GLFW_MOUSE_BUTTON_LEFT){
 			if (action == GLFW_PRESS){
 				printf("(%d, %d) -> <%.3f,%.3f,%.3f>\n", position[0], position[1], data.ObjectId, data.PointId, data.PrimitiveId);
-				this->PointsMoved = true;
-
+				this->MovingPoints = true;
+				this->pickingStartPosition = position;
 				Vertex * vertex = &(*this->Vertices)[static_cast<int>(data.PointId)];
-				vertex->Color = ColorVectors::RED;
+				
+				PickedVertex pickedVertex;
+				pickedVertex.Vertex = vertex;
+				pickedVertex.OriginalPosition = vertex->Position;
+
+				if (mods & GLFW_MOD_CONTROL){
+					if (!this->IsVertexPicked(vertex->Id)){
+						this->PickedVertices.push_back(pickedVertex);
+					}
+					else{
+						this->ClearPickedVertex(pickedVertex.Vertex->Id);
+					}
+				}
+				else{
+					this->ClearPickedVertices();
+					this->PickedVertices.push_back(pickedVertex);
+				}
 			}
 			
 		}
 	}
 
-	else if (action == GLFW_RELEASE){
-		this->PointsMoved = false;
+	if (action == GLFW_RELEASE){
+		if (!(mods & GLFW_MOD_CONTROL)){
+			if (data.ObjectId != this->objectId){
+				this->ClearPickedVertices();
+				this->MovingPoints = false;
+			}
+			else{
+				if (this->PickedVertices.size() == 1){
+
+					this->ClearPickedVertices();
+					this->MovingPoints = false;
+				}
+			}
+		}
 	}
+	
 	return false;
+}
+
+void MeshObject::ClearPickedVertices(){
+	for (int x = 0; x < this->PickedVertices.size(); x += 1){
+		this->PickedVertices[x].Vertex->Color = ColorVectors::GREEN;
+		this->PickedVertices[x].Vertex->Size = 5.f;
+	}
+	this->PickedVertices.clear();
+}
+
+void MeshObject::ClearPickedVertex(int id){
+	int index = this->GetVertexIndexById(id);
+
+	this->PickedVertices[index].Vertex->Color = ColorVectors::GREEN;
+	this->PickedVertices[index].Vertex->Size = 5.f;
+	this->PickedVertices.erase(this->PickedVertices.begin() + index);
+}
+
+bool MeshObject::IsVertexPicked(int id){
+	return (this->GetVertexIndexById(id) != -1);
+}
+
+int MeshObject::GetVertexIndexById(int id){
+	for (int x = 0; x < this->PickedVertices.size(); x += 1){
+		if (this->PickedVertices[x].Vertex->Id == id){
+			return x;
+		}
+	}
+	return -1;
 }

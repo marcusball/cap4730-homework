@@ -457,17 +457,17 @@ void Game::MouseCallback(GLFWwindow * window, int button, int action, int mods){
 	}
 }
 
-Vector2ui Game::GetCursorPosition(){
+Vector2d Game::GetCursorPosition(){
 	double xpos, ypos;
 	glfwGetCursorPos(this->Window, &xpos, &ypos);
 
 	
-	Vector2ui pos = Vector2ui(static_cast<unsigned int>(xpos), static_cast<unsigned int>(this->RESOLUTION_HEIGHT - ypos));
+	Vector2d pos = Vector2d(static_cast<unsigned int>(xpos), static_cast<unsigned int>(this->RESOLUTION_HEIGHT - ypos));
 	return pos;
 }
 
 PixelData Game::GetPixelSelected(){
-	Vector2ui mousePositon = this->GetCursorPosition();
+	Vector2d mousePositon = this->GetCursorPosition();
 	PixelData pixel = Picking::ReadPixelAt(mousePositon);
 
 	return pixel;
