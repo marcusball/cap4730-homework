@@ -21,6 +21,7 @@ uniform mat4 ModelMatrix;
 uniform mat4 ProjectionMatrix;
 uniform vec3 Light1Position_worldspace;
 uniform vec3 Light2Position_worldspace;
+uniform uint ObjectId;
 
 void main(){
 	gl_PointSize = vertexSize;
@@ -50,7 +51,9 @@ void main(){
 	colorIdParts.g = ((pointId >> 8) & 0xff) / 255.0;
 	colorIdParts.b = ((pointId >> 16) & 0xff) / 255.0;
 
-	vs_vertexColor = vec4(colorIdParts, 1.0);	// set color based on the ID mark
+	//vs_vertexColor = vec4(colorIdParts, 1.0);	// set color based on the ID mark
+
+	 FragColor = vec3(float(pointId), float(pointId),float(gl_PrimitiveID + 1));
 
 	//TexCoord0 = vertexTextureCoord;
 }

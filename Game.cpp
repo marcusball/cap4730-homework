@@ -41,6 +41,8 @@ int Game::Run(){
 		return 1;
 	}
 
+	Picking::Initialize();
+
 	GridObject testGrid = GridObject();
 	testGrid.Init(10, 10);
 
@@ -172,6 +174,8 @@ bool Game::InitializeOpenGL(){
 	LightID1 = glGetUniformLocation(ProgramID, "Light1Position_worldspace");
 	LightID2 = glGetUniformLocation(ProgramID, "Light2Position_worldspace");
 
+	PickingObjectID = glGetUniformLocation(PickingProgramID, "ObjectId");
+
 	return true;
 }
 
@@ -201,28 +205,27 @@ void Game::RenderScene(){
 
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//if (!this->PixelInfoQueue.empty()){
-	if (glfwGetMouseButton(this->Window, GLFW_MOUSE_BUTTON_LEFT)){
-		glUseProgram(PickingProgramID);
-		this->DrawPickingBuffer(renderData); //Draw the picking stuff
-	}
-	
-	if (this->debugPicking){
-		glfwSwapBuffers(this->Window);
-	}
-	else{
-		glFinish();
-		//glfwSwapBuffers(0);
-	}
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	if (!this->debugPicking){
-		glUseProgram(ProgramID);
-		this->DrawGraphicBuffer(renderData);
+	//Start the picking process
+	glUseProgram(PickingProgramID);
 
-		glfwSwapBuffers(this->Window);
+	Picking::Enable();
+	this->DrawPickingBuffer(renderData); //Draw the picking stuff
+	Picking::Disable();
+
+
+	//Start the render process
+	glUseProgram(ProgramID);
+	this->DrawGraphicBuffer(renderData);
+
+	while(!this->PixelInfoQueue.empty()){
+		PixelData pixel = Picking::ReadPixelAt(this->GetCursorPosition());
+		
+		printf("Object Id: %f, Point Id: %f, Prim: %f\n", pixel.ObjectId, pixel.PointId, pixel.PrimitiveId);
+
+		this->PixelInfoQueue.pop();
 	}
-	
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glfwSwapBuffers(this->Window);
 }
 
 void Game::DrawPickingBuffer(RenderData renderData){
@@ -235,25 +238,21 @@ void Game::DrawPickingBuffer(RenderData renderData){
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	int x = 0;
 	while (!PickingRenderQueue.empty()){
+		Picking::UpdateObjectId(PickingObjectID, x);
+
 		PickingRenderQueue.front()->Render(pickingRenderData);
 		PickingRenderQueue.pop();
+		x += 1; 
 	}
 
 	glBlendFunc(GL_NONE, GL_NONE);
 	glDisable(GL_BLEND);
 
-	
 
 	glFlush();
-	
-	this->SendPixelInfo();
-
-	if (!this->debugPicking){
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		
-		
-	}glFinish();
+	glFinish();
 }
 
 void Game::DrawGraphicBuffer(RenderData renderData){
@@ -470,4 +469,13 @@ void Game::SendPixelInfo(){
 			this->PixelInfoQueue.pop();
 		}
 	}
+}
+
+Vector2ui Game::GetCursorPosition(){
+	double xpos, ypos;
+	glfwGetCursorPos(this->Window, &xpos, &ypos);
+
+	
+	Vector2ui pos = Vector2ui(static_cast<unsigned int>(xpos), static_cast<unsigned int>(this->RESOLUTION_HEIGHT - ypos));
+	return pos;
 }

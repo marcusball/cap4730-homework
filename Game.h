@@ -22,6 +22,7 @@ using namespace glm;
 #include "RenderableObject.h"
 #include "ControlInterceptor.h"
 #include "AssembledObject.h"
+#include "Picking.h"
 
 
 class Game{
@@ -67,6 +68,7 @@ private:
 	void SendPixelInfo();
 	void DrawPickingBuffer(RenderData renderData);
 	void DrawGraphicBuffer(RenderData renderData);
+	Vector2ui GetCursorPosition();
 
 
 	// Member Variables
@@ -90,6 +92,7 @@ private:
 	GLuint ModelMatrixID;
 	GLuint LightID1;
 	GLuint LightID2;
+	GLuint PickingObjectID;
 
 	bool CameraFlipped = false;
 	bool debugPicking = false;
