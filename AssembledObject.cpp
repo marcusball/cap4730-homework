@@ -29,6 +29,7 @@ void AssembledObject::Clear(){
 	this->SelectedComponent = nullptr;
 	this->SelectBindings.clear();
 	this->MovementBindings.clear();
+	this->hide = false;
 }
 
 bool AssembledObject::LoadFromFile(std::string filename){

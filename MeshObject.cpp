@@ -10,6 +10,10 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include <iostream>
+#include <fstream>
+#include <string>
+
 
 MeshObject::MeshObject(){
 
@@ -20,9 +24,17 @@ MeshObject::~MeshObject()
 {
 }
 
+void MeshObject::Clear(){
+	RenderableObject::Clear();
+	this->HideMesh = false;
+	this->MovingPoints = false;
+	this->ClearPickedVertices();
+}
+
 void MeshObject::Init(float sideLength, int pointsPerSide){
 	this->Clear();
 	this->isInit = true;
+	this->SideLength = sideLength;
 	this->PointsPerSide = pointsPerSide;
 
 	glGenVertexArrays(1, &objectVAO);
@@ -39,7 +51,7 @@ void MeshObject::Init(float sideLength, int pointsPerSide){
 	long width, height;
 	this->textureObject = load_texture_TGA("models/Ball.tga", &width, &height, GL_REPEAT, GL_REPEAT);
 	if (width != 0 && height != 0){
-		printf("Loaded texture (%d) (%d by %d)\n", this->textureObject, width, height);
+		printf("[*] Loaded texture (%d) (%d by %d)\n", this->textureObject, width, height);
 		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
 	}
 
@@ -195,7 +207,7 @@ void MeshObject::Render(RenderData renderData){
 		//printf("Delta: (%.3f, %.3f)\n", delta[0], delta[1]);
 
 		glm::vec4 movement = glm::vec4(delta[0],delta[1],0,0);
-		glm::mat4 mvp = (*renderData.ProjectionMatrix) * (*renderData.ViewMatrix) * (*renderData.ModelMatrix);
+		glm::mat4 mvp = (*renderData.ProjectionMatrix) * (*renderData.ViewMatrix);
 
 		for (int x = 0; x < this->PickedVertices.size(); x += 1){
 			PickedVertex * picked = &this->PickedVertices[x];
@@ -223,9 +235,13 @@ void MeshObject::Render(RenderData renderData){
 		glBindTexture(GL_TEXTURE_2D, this->textureObject);
 	}
 
-	glDrawElementsBaseVertex(GL_POINTS, this->pointVertexCount, GL_UNSIGNED_INT, 0, 0);
+	if (!this->HideMesh){
+		glDrawElementsBaseVertex(GL_POINTS, this->pointVertexCount, GL_UNSIGNED_INT, 0, 0);
+	}
 	if (renderData.RenderType != RenderType::Picking){
-		glDrawElementsBaseVertex(GL_LINES, this->lineVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* this->pointVertexCount), 0);
+		if (!this->HideMesh){
+			glDrawElementsBaseVertex(GL_LINES, this->lineVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* this->pointVertexCount), 0);
+		}
 		glDrawElementsBaseVertex(GL_TRIANGLES, this->triangleVertexCount, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int)* (this->pointVertexCount + this->lineVertexCount)), 0);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -365,7 +381,6 @@ bool MeshObject::MouseCallback(int button, int action, int mods){
 	if (data.ObjectId == this->objectId){
 		if (button == GLFW_MOUSE_BUTTON_LEFT){
 			if (action == GLFW_PRESS){
-				printf("(%d, %d) -> <%.3f,%.3f,%.3f>\n", position[0], position[1], data.ObjectId, data.PointId, data.PrimitiveId);
 				this->MovingPoints = true;
 				this->pickingStartPosition = position;
 				Vertex * vertex = &(*this->Vertices)[static_cast<int>(data.PointId)];
@@ -492,4 +507,69 @@ void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radiu
 		best = -1;
 	}
 	printf("[*] Done!\n");
+}
+
+void MeshObject::Load(){
+	printf("[*] Loading data from file...\n");
+	std::ifstream in("cm.hw3");
+	std::string line;
+	int x = 0;
+
+	std::vector<Vertex> * loadedVertices = new std::vector<Vertex>();
+	while (std::getline(in, line)){
+		if (x == 0){
+			int sidelen, pointsperside, verticeCount;
+			int num = sscanf(line.c_str(), "%d,%d,%d\n", &sidelen, &pointsperside, &verticeCount);
+			if (num != 3){
+				printf("[*] Error: File is fucked up (%d)\n", num);
+				return;
+			}
+			this->SideLength = sidelen;
+			this->PointsPerSide = pointsperside;
+			loadedVertices->reserve(verticeCount);
+			printf("[*] Loading mesh with sides of length %d, %d points per side, and %d total vertices.\n", sidelen, pointsperside, verticeCount);
+		}
+		else{
+			Vertex v = Vertex();
+			int num = sscanf(line.c_str(), "%u,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", 
+				&v.Id,
+				&v.Position[0], &v.Position[1], &v.Position[2], &v.Position[3],
+				&v.Color[0], &v.Color[1], &v.Color[2], &v.Color[3],
+				&v.Normal[0], &v.Normal[1], &v.Normal[2],
+				&v.Texture[0], &v.Texture[1],
+				&v.Size
+			);
+			printf("[*] Loaded vertex %d at <%.3f, %.3f, %.3f>\n", v.Id, v.Position[0], v.Position[1], v.Position[2]);
+
+			loadedVertices->push_back(v);
+		}
+		x += 1;
+	}
+
+	printf("[*] Initializing base data...\n");
+	this->Init(this->SideLength, this->PointsPerSide);
+	this->Vertices = loadedVertices;
+	printf("[*] Updating vertex buffers...\n");
+	this->UpdateVertexBuffers(this->Vertices);
+	printf("[*] Done!\n");
+}
+void MeshObject::Save(){
+	printf("[*] Saving data to file...\n");
+	std::ofstream out("cm.hw3");
+	out << this->SideLength <<","<< this->PointsPerSide << "," << this->Vertices->size() << "\n";
+	for (int x = 0; x < this->Vertices->size(); x += 1){
+		Vertex * v = &(*this->Vertices)[x];
+		char buffer[256];
+		sprintf(buffer,"%u,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+			v->Id,
+			v->Position[0], v->Position[1], v->Position[2], v->Position[3],
+			v->Color[0], v->Color[1], v->Color[2], v->Color[3],
+			v->Normal[0], v->Normal[1], v->Normal[2],
+			v->Texture[0], v->Texture[1],
+			v->Size
+			);
+		out << buffer;
+	}
+	out.close();
+	printf("[*] Saved to file \"cm.hw3\"\n");
 }

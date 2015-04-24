@@ -285,9 +285,9 @@ void Game::DrawGraphicBuffer(RenderData renderData){
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 
-	glm::vec3 lightPos1 = glm::vec3(-5, 5, -5);
+	glm::vec3 lightPos1 = glm::vec3(-5, 5, 5);
 	glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
-	glm::vec3 lightPos2 = glm::vec3(5, 5, -5);
+	glm::vec3 lightPos2 = glm::vec3(-5, 5, -5);
 	glUniform3f(LightID2, lightPos2.x, lightPos2.y, lightPos2.z);
 
 	while (!RenderQueue.empty()){
@@ -331,6 +331,8 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 		switch (key)
 		{
 			case GLFW_KEY_R: {
+				game->InitializeOpenGL();
+
 				game->DisplayModel->Clear();
 				game->DisplayModel->LoadFromFile("models/model.objc");
 
@@ -338,21 +340,18 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				game->SkinModel->Init(10, game->GRID_COUNT);
 				break;
 			}
-			case GLFW_KEY_A:
 			case GLFW_KEY_LEFT: {
 				glm::vec3 rotationAxis(0.f, 1.f, 0.f);
 				glm::mat4 rotation = glm::rotate(15.f, rotationAxis);
 				game->ViewMatrix = game->ViewMatrix * rotation;
 				break;
 			}
-			case GLFW_KEY_D:
 			case GLFW_KEY_RIGHT: {
 				glm::vec3 rotationAxis(0.f, 1.f, 0.f);
 				glm::mat4 rotation = glm::rotate(-15.f, rotationAxis);
 				game->ViewMatrix = game->ViewMatrix * rotation;
 				break;
 			}
-			case GLFW_KEY_W:
 			case GLFW_KEY_UP: {
 				glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
 				cameraX = cameraX * game->ViewMatrix;
@@ -362,7 +361,6 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				game->ViewMatrix = game->ViewMatrix * rotation;
 				break;
 			}
-			case GLFW_KEY_S:
 			case GLFW_KEY_DOWN: {
 				glm::vec4 cameraX(1.f, 0.f, 0.f, 1.f);
 				cameraX = cameraX * game->ViewMatrix;
@@ -384,6 +382,18 @@ void Game::KeyCallback(GLFWwindow * window, int key, int scancode, int action, i
 				/***********************************************************************************************
 				 ** This is probably the line you're looking for.                                             **
 				 ***********************************************************************************************/
+				break;
+			}
+			case GLFW_KEY_S:{
+				game->SkinModel->Save();
+				break;
+			}
+			case GLFW_KEY_L:{
+				game->SkinModel->Load();
+				break;
+			}
+			case GLFW_KEY_H:{
+				game->SkinModel->HideMesh = !game->SkinModel->HideMesh;
 				break;
 			}
 			default:

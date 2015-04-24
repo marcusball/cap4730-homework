@@ -8,6 +8,7 @@
 #include "Vertex.h"
 #include "Picking.h"
 
+
 class MeshObject : public RenderableObject, public ControlInterceptor
 {
 public:
@@ -22,6 +23,7 @@ public:
 	void Init(float sideLength, int pointsPerSide = 12);
 
 	virtual void Render(RenderData renderData);
+	virtual void Clear();
 
 	/*
 	* Receive keyboard input.
@@ -34,6 +36,10 @@ public:
 
 	void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radius, float height, float angleAdjust = 0.f);
 
+	void Load();
+	void Save();
+
+	bool HideMesh = false;
 private:
 
 	virtual void CreateVertexBuffers(const std::vector<Vertex> * const vertices, const std::vector<unsigned int> * const indices);
@@ -56,8 +62,10 @@ private:
 	int triangleVertexCount;
 
 	int PointsPerSide;
+	int SideLength;
 
 	bool MovingPoints = false;
+	
 
 	GLuint textureObject;
 
