@@ -460,11 +460,16 @@ void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radiu
 	int best = -1;
 
 	float smallest = 10000000000.f;
+	int smallestIndex = -1;
+	
 	for (int x = 0; x < this->VertexCount; x += 1){
 		float circlePart = (x / (this->PointsPerSide)) / (float)(this->PointsPerSide - 1);
 		float heightPart = (x % this->PointsPerSide) / (float)this->PointsPerSide;
 		float rayRadius = radius;
 		int tries = 0;
+
+		int rangeEnd = vertices->size();
+		int rangeStart = 0;
 
 		while (best == -1 && tries < 15){
 			float xpos = std::cos((circlePart * -360.f + angleAdjust) * M_PI / 180.f) * rayRadius;
@@ -474,14 +479,19 @@ void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radiu
 			(*this->Vertices)[x].Position = PointPosition;
 			(*this->Vertices)[x + this->VertexCount].Position = PointPosition;
 
-			for (int y = 0; y < vertices->size(); y += 1){
+			for (int y = rangeStart; y < rangeEnd; y += 1){
 				float distance = PointPosition.DistanceTo((*vertices)[y].Position);
-				if (distance < .25f && distance < minDistance){
+				if (distance < .2f && distance < minDistance){
 					best = y;
 					minDistance = distance;
+
+					if (distance < 0.15f){
+						break;
+					}
 				}
 				if (distance < smallest){
 					smallest = distance;
+					smallestIndex = y;
 				}
 			}
 			if (rayRadius > 0.5){
@@ -491,6 +501,12 @@ void MeshObject::CylinderFix(LoadedObject * object, Vector3f origin, float radiu
 				else{
 					rayRadius = rayRadius * .95f;
 				}
+			}
+			
+			if (smallest <= 2){
+				int newRangeLength = (rangeEnd - rangeStart) / 2;
+				rangeEnd = std::min(smallestIndex + (newRangeLength / 2), static_cast<int>(vertices->size()));
+				rangeStart = std::max(smallestIndex - (newRangeLength / 2), 0);
 			}
 			tries += 1;
 		}

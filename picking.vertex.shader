@@ -22,9 +22,9 @@ void main(){
 	gl_Position = ProjectionMatrix * ViewMatrix * ModelMatrix * vertexPosition_modelspace;
 	
 	vec3 colorIdParts = vec3(0,0,0);
-	colorIdParts.r = (pointId & 0xff);
-	colorIdParts.g = ((pointId >> 8) & 0xff);
-	colorIdParts.b = ((pointId >> 16) & 0xff);
+	colorIdParts.r = (pointId & uint(0xff));
+	colorIdParts.g = ((pointId >> 8) & uint(0xff));
+	colorIdParts.b = ((pointId >> 16) & uint(0xff));
 
 	//vs_vertexColor = vec4(colorIdParts, 1.0);	// set color based on the ID mark
 	//vs_vertexColor = vec4(69.0, 80085.0, 1337.0,0.0);
